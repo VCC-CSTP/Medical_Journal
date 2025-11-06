@@ -1,7 +1,14 @@
 import React from 'react'
+import { StatsSection } from './StatsSection'
+import { FeaturedJournalsSection } from './FeaturedJournalsSection';
+import { NewsSection } from './NewsSection';
 
 export const HomePage = () => {
   return (
-    <div>HomePage</div>
-  )
+    <>
+      <FeaturedJournalsSection />
+      <StatsSection />
+      <NewsSection />
+    </>
+  );
 }
