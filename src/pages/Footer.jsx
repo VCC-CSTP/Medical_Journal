@@ -18,14 +18,11 @@ export const Footer = () => {
             <div className="flex flex-col items-start">
               <Link to="/" className="block">
                 <img
-                  src="/logo-central-white.png"
+                  src="/src/assets/logo-central-white.png"
                   alt="CENTRAL Logo"
                   className="w-32 h-32 mb-2"
                 />
-                <h3 className="text-3xl font-bold tracking-wider">CENTRAL</h3>
-                <p className="text-xs mt-1 leading-tight max-w-[150px]">
-                  Centralized Electronic Roster of Philippine Medical Journals
-                </p>
+
               </Link>
             </div>
           </div>

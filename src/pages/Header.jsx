@@ -1,535 +1,232 @@
-// src/components/Header.jsx
-import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+ 'use client'
+
+import { useState } from 'react'
+import { Dialog, DialogPanel, Popover, PopoverButton, PopoverGroup, PopoverPanel } from '@headlessui/react'
 import {
-  MagnifyingGlassIcon,
+  ArrowPathIcon,
   Bars3Icon,
+  ChartPieIcon,
+  CursorArrowRaysIcon,
+  FingerPrintIcon,
+  SquaresPlusIcon,
   XMarkIcon,
-  ChevronDownIcon,
-} from "@heroicons/react/24/outline";
+} from '@heroicons/react/24/outline'
+import { ChevronDownIcon, PhoneIcon, PlayCircleIcon } from '@heroicons/react/20/solid'
 
-export const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const navigate = useNavigate();
-  const dropdownRef = useRef(null);
+const products = [
+  { name: 'Analytics', description: 'Get a better understanding of your traffic', href: '#', icon: ChartPieIcon },
+  { name: 'Engagement', description: 'Speak directly to your customers', href: '#', icon: CursorArrowRaysIcon },
+  { name: 'Security', description: 'Your customers’ data will be safe and secure', href: '#', icon: FingerPrintIcon },
+  { name: 'Integrations', description: 'Connect with third-party tools', href: '#', icon: SquaresPlusIcon },
+  { name: 'Automations', description: 'Build strategic funnels that will convert', href: '#', icon: ArrowPathIcon },
+]
+const callsToAction = [
+  { name: 'Watch demo', href: '#', icon: PlayCircleIcon },
+  { name: 'Contact sales', href: '#', icon: PhoneIcon },
+]
+const company = [
+  { name: 'About us', href: '#', description: 'Learn more about our company values and mission to empower others' },
+  { name: 'Careers', href: '#', description: 'Looking for you next career opportunity? See all of our open positions' },
+  {
+    name: 'Support',
+    href: '#',
+    description: 'Get in touch with our dedicated support team or reach out on our community forums',
+  },
+  { name: 'Blog', href: '#', description: 'Read our latest announcements and get perspectives from our team' },
+]
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setActiveDropdown(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery("");
-    }
-  };
-
-  const toggleDropdown = (menu) => {
-    setActiveDropdown(activeDropdown === menu ? null : menu);
-  };
-
-  const closeMenu = () => {
-    setIsMenuOpen(false);
-    setActiveDropdown(null);
-  };
+export default function Example() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        {/* Top Section - Logo and Search */}
-        <div className="flex items-center justify-between py-4 gap-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 shrink-0">
-            <div className="size-12 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-xl">P</span>
-            </div>
-            <div className="hidden sm:block">
-              <h1 className="text-xl font-bold text-primary">Central</h1>
-              <p className="text-xs text-secondary">
-                Medical Journal Reference System
-              </p>
-            </div>
-          </Link>
-
-          {/* Center Search Box */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-2xl mx-4">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search journals, articles, authors..."
-                className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-full 
-                         outline-none ring-primary/50 focus:ring-2 focus:border-transparent
-                         transition-all duration-200"
-              />
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 
-                         text-gray-500 hover:text-primary transition-colors"
-                aria-label="Search"
-              >
-                <MagnifyingGlassIcon className="size-5" />
-              </button>
-            </div>
-          </form>
-
-          {/* Mobile Menu Toggle */}
+    <header className="bg-white">
+      <nav aria-label="Global" className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
+        <div className="flex lg:flex-1">
+          <a href="#" className="-m-1.5 p-1.5">
+            <span className="sr-only">Your Company</span>
+            <img
+              alt=""
+              src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
+              className="h-8 w-auto"
+            />
+          </a>
+        </div>
+        <div className="flex lg:hidden">
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="lg:hidden p-2 text-gray-600 hover:text-primary transition-colors"
-            aria-label="Toggle menu"
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
           >
-            {isMenuOpen ? (
-              <XMarkIcon className="size-6" />
-            ) : (
-              <Bars3Icon className="size-6" />
-            )}
+            <span className="sr-only">Open main menu</span>
+            <Bars3Icon aria-hidden="true" className="size-6" />
           </button>
         </div>
+        <PopoverGroup className="hidden lg:flex lg:gap-x-12">
+          <Popover className="relative">
+            <PopoverButton className="flex items-center gap-x-1 text-sm/6 font-semibold text-gray-900">
+              Product
+              <ChevronDownIcon aria-hidden="true" className="size-5 flex-none text-gray-400" />
+            </PopoverButton>
 
-        {/* Navigation Menu - Desktop */}
-        <nav
-          className="hidden lg:block border-t border-gray-200"
-          ref={dropdownRef}
-        >
-          <ul className="flex items-center justify-center gap-1 py-0">
-            {/* HOME */}
-            <li>
-              <Link
-                to="/"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                HOME
-              </Link>
-            </li>
-
-            {/* ABOUT US */}
-            <li>
-              <Link
-                to="/about"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                ABOUT US
-              </Link>
-            </li>
-
-            {/* PAMJE */}
-            <li>
-              <Link
-                to="/pamje"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                PAMJE
-              </Link>
-            </li>
-
-            {/* JOURNALS - Dropdown */}
-            <li className="relative">
-              <button
-                onClick={() => toggleDropdown("journals")}
-                className="flex items-center px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                JOURNALS
-                <ChevronDownIcon
-                  className={`size-4 ml-1 transition-transform duration-200 
-                           ${
-                             activeDropdown === "journals" ? "rotate-180" : ""
-                           }`}
-                />
-              </button>
-              {activeDropdown === "journals" && (
-                <div
-                  className="absolute top-full start-0 mt-0 w-56 bg-white shadow-dropdown 
-                              rounded-b-lg border border-gray-200 py-2 animate-fade-in"
-                >
-                  <Link
-                    to="/journals"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
+            <PopoverPanel
+              transition
+              className="absolute left-1/2 z-10 mt-3 w-screen max-w-md -translate-x-1/2 overflow-hidden rounded-3xl bg-white shadow-lg outline-1 outline-gray-900/5 transition data-closed:translate-y-1 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
+            >
+              <div className="p-4">
+                {products.map((item) => (
+                  <div
+                    key={item.name}
+                    className="group relative flex items-center gap-x-6 rounded-lg p-4 text-sm/6 hover:bg-gray-50"
                   >
-                    All Journals
-                  </Link>
-                  <Link
-                    to="/journals/browse"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
+                    <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
+                      <item.icon aria-hidden="true" className="size-6 text-gray-600 group-hover:text-indigo-600" />
+                    </div>
+                    <div className="flex-auto">
+                      <a href={item.href} className="block font-semibold text-gray-900">
+                        {item.name}
+                        <span className="absolute inset-0" />
+                      </a>
+                      <p className="mt-1 text-gray-600">{item.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 divide-x divide-gray-900/5 bg-gray-50">
+                {callsToAction.map((item) => (
+                  <a
+                    key={item.name}
+                    href={item.href}
+                    className="flex items-center justify-center gap-x-2.5 p-3 text-sm/6 font-semibold text-gray-900 hover:bg-gray-100"
                   >
-                    Browse by Category
-                  </Link>
-                  <Link
-                    to="/journals/featured"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    Featured Journals
-                  </Link>
-                  <Link
-                    to="/journals/category"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    Catergory Journals
-                  </Link>
-                  <div className="border-t border-gray-200 my-2"></div>
+                    <item.icon aria-hidden="true" className="size-5 flex-none text-gray-400" />
+                    {item.name}
+                  </a>
+                ))}
+              </div>
+            </PopoverPanel>
+          </Popover>
 
+          <a href="#" className="text-sm/6 font-semibold text-gray-900">
+            Features
+          </a>
+          <a href="#" className="text-sm/6 font-semibold text-gray-900">
+            Marketplace
+          </a>
+
+          <Popover className="relative">
+            <PopoverButton className="flex items-center gap-x-1 text-sm/6 font-semibold text-gray-900">
+              Company
+              <ChevronDownIcon aria-hidden="true" className="size-5 flex-none text-gray-400" />
+            </PopoverButton>
+
+            <PopoverPanel
+              transition
+              className="absolute left-1/2 z-10 mt-3 w-96 -translate-x-1/2 rounded-3xl bg-white p-4 shadow-lg outline-1 outline-gray-900/5 transition data-closed:translate-y-1 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
+            >
+              {company.map((item) => (
+                <div key={item.name} className="relative rounded-lg p-4 hover:bg-gray-50">
+                  <a href={item.href} className="block text-sm/6 font-semibold text-gray-900">
+                    {item.name}
+                    <span className="absolute inset-0" />
+                  </a>
+                  <p className="mt-1 text-sm/6 text-gray-600">{item.description}</p>
                 </div>
-              )}
-            </li>
-
-            {/* RESOURCES - Dropdown */}
-            <li className="relative">
-              <button
-                onClick={() => toggleDropdown("resources")}
-                className="flex items-center px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                RESOURCES
-                <ChevronDownIcon
-                  className={`size-4 ml-1 transition-transform duration-200 
-                           ${
-                             activeDropdown === "resources" ? "rotate-180" : ""
-                           }`}
+              ))}
+            </PopoverPanel>
+          </Popover>
+        </PopoverGroup>
+        <div className="hidden lg:flex lg:flex-1 lg:justify-end">
+          <a href="#" className="text-sm/6 font-semibold text-gray-900">
+            Log in <span aria-hidden="true">&rarr;</span>
+          </a>
+        </div>
+      </nav>
+      <Dialog open={mobileMenuOpen} onClose={setMobileMenuOpen} className="lg:hidden">
+        <div className="fixed inset-0 z-10" />
+        <DialogPanel className="fixed inset-y-0 right-0 z-10 flex w-full flex-col justify-between overflow-y-auto bg-white sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <a href="#" className="-m-1.5 p-1.5">
+                <span className="sr-only">Your Company</span>
+                <img
+                  alt=""
+                  src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
+                  className="h-8 w-auto"
                 />
+              </a>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="-m-2.5 rounded-md p-2.5 text-gray-700"
+              >
+                <span className="sr-only">Close menu</span>
+                <XMarkIcon aria-hidden="true" className="size-6" />
               </button>
-              {activeDropdown === "resources" && (
-                <div
-                  className="absolute top-full start-0 mt-0 w-56 bg-white shadow-dropdown 
-                              rounded-b-lg border border-gray-200 py-2 animate-fade-in"
-                >
-                  <Link
-                    to="/resources/editors"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    For Editors
-                  </Link>
-                  <Link
-                    to="/resources/researchers"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    For Researchers
-                  </Link>
-                  <div className="border-t border-gray-200 my-2"></div>
-                  <Link
-                    to="/resources/guidelines"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    Publishing Guidelines
-                  </Link>
-                  <Link
-                    to="/resources/templates"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    Templates & Forms
-                  </Link>
-                  <Link
-                    to="/resources/faq"
-                    onClick={() => setActiveDropdown(null)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                             hover:text-primary transition-colors"
-                  >
-                    FAQ
-                  </Link>
+            </div>
+            <div className="mt-6 flow-root">
+              <div className="-my-6 divide-y divide-gray-500/10">
+                <div className="space-y-2 py-6">
+                  {products.map((item) => (
+                    <a
+                      key={item.name}
+                      href={item.href}
+                      className="group -mx-3 flex items-center gap-x-6 rounded-lg p-3 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                    >
+                      <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
+                        <item.icon aria-hidden="true" className="size-6 text-gray-600 group-hover:text-indigo-600" />
+                      </div>
+                      {item.name}
+                    </a>
+                  ))}
                 </div>
-              )}
-            </li>
+                <div className="space-y-2 py-6">
+                  <a
+                    href="#"
+                    className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                  >
+                    Features
+                  </a>
+                  <a
+                    href="#"
+                    className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                  >
+                    Marketplace
+                  </a>
 
-            {/* NEWS AND ANNOUNCEMENTS */}
-            <li>
-              <Link
-                to="/news"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
+                  {company.map((item) => (
+                    <a
+                      key={item.name}
+                      href={item.href}
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                    >
+                      {item.name}
+                    </a>
+                  ))}
+                </div>
+                <div className="py-6">
+                  <a
+                    href="#"
+                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                  >
+                    Log in
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="sticky bottom-0 grid grid-cols-2 divide-x divide-gray-900/5 bg-gray-50 text-center">
+            {callsToAction.map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                className="p-3 text-base/7 font-semibold text-gray-900 hover:bg-gray-100"
               >
-                NEWS & ANNOUNCEMENTS
-              </Link>
-            </li>
-
-            {/* CONTACT US */}
-            <li>
-              <Link
-                to="/contact"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                CONTACT US
-              </Link>
-            </li>
-
-            {/* Divider */}
-            <li className="h-8 w-px bg-gray-300 mx-2"></li>
-
-            {/* LOG IN */}
-            <li>
-              <Link
-                to="/login"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                         hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                LOG IN
-              </Link>
-            </li>
-
-            {/* REGISTER */}
-            <li>
-              <Link
-                to="/register"
-                className="block px-4 py-2 mx-2 bg-primary text-white rounded-lg 
-                         hover:bg-primary-hover transition-all duration-200 font-medium"
-              >
-                REGISTER
-              </Link>
-            </li>
-          </ul>
-        </nav>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <nav className="lg:hidden border-t border-gray-200 py-4 animate-fade-in">
-            <ul className="flex flex-col gap-2">
-              <li>
-                <Link
-                  to="/"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                           hover:text-primary transition-colors rounded"
-                >
-                  HOME
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/about"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                           hover:text-primary transition-colors rounded"
-                >
-                  ABOUT US
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/pamje"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                           hover:text-primary transition-colors rounded"
-                >
-                  PAMJE
-                </Link>
-              </li>
-
-              {/* JOURNALS - Mobile Dropdown */}
-              <li>
-                <button
-                  onClick={() => toggleDropdown("journals-mobile")}
-                  className="w-full flex items-center justify-between px-4 py-2 
-                           text-gray-700 hover:bg-blue-50 hover:text-primary 
-                           transition-colors rounded"
-                >
-                  JOURNALS
-                  <ChevronDownIcon
-                    className={`size-4 transition-transform duration-200 
-                             ${
-                               activeDropdown === "journals-mobile"
-                                 ? "rotate-180"
-                                 : ""
-                             }`}
-                  />
-                </button>
-                {activeDropdown === "journals-mobile" && (
-                  <ul className="ms-4 mt-2 flex flex-col gap-2 border-s-2 border-primary ps-4">
-                    <li>
-                      <Link
-                        to="/journals"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        All Journals
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/journals/browse"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        Browse by Category
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/journals/featured"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        Featured Journals
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/journals/indexed"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        Indexed Journals
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/journals/submit"
-                        onClick={closeMenu}
-                        className="block py-2 text-primary font-medium hover:underline"
-                      >
-                        Submit a Journal
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </li>
-
-              {/* RESOURCES - Mobile Dropdown */}
-              <li>
-                <button
-                  onClick={() => toggleDropdown("resources-mobile")}
-                  className="w-full flex items-center justify-between px-4 py-2 
-                           text-gray-700 hover:bg-blue-50 hover:text-primary 
-                           transition-colors rounded"
-                >
-                  RESOURCES
-                  <ChevronDownIcon
-                    className={`size-4 transition-transform duration-200 
-                             ${
-                               activeDropdown === "resources-mobile"
-                                 ? "rotate-180"
-                                 : ""
-                             }`}
-                  />
-                </button>
-                {activeDropdown === "resources-mobile" && (
-                  <ul className="ms-4 mt-2 flex flex-col gap-2 border-s-2 border-primary ps-4">
-                    <li>
-                      <Link
-                        to="/resources/editors"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        For Editors
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/resources/researchers"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        For Researchers
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/resources/guidelines"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        Publishing Guidelines
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/resources/templates"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        Templates & Forms
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/resources/faq"
-                        onClick={closeMenu}
-                        className="block py-2 text-gray-600 hover:text-primary transition-colors"
-                      >
-                        FAQ
-                      </Link>
-                    </li>
-                  </ul>
-                )}
-              </li>
-
-              <li>
-                <Link
-                  to="/news"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                           hover:text-primary transition-colors rounded"
-                >
-                  NEWS & ANNOUNCEMENTS
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/contact"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                           hover:text-primary transition-colors rounded"
-                >
-                  CONTACT US
-                </Link>
-              </li>
-
-              {/* Divider */}
-              <li className="border-t border-gray-200 my-2"></li>
-
-              <li>
-                <Link
-                  to="/login"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
-                           hover:text-primary transition-colors rounded"
-                >
-                  LOG IN
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/register"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 mx-4 bg-primary text-white rounded-lg 
-                           hover:bg-primary-hover transition-colors text-center font-medium"
-                >
-                  REGISTER
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        )}
-      </div>
+                {item.name}
+              </a>
+            ))}
+          </div>
+        </DialogPanel>
+      </Dialog>
     </header>
-  );
-};
+  )
+}

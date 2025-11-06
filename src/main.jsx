@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { StrictMode } from "react";
 import "./index.css";
 import App from "./App.jsx";
+import "@tailwindplus/elements";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
