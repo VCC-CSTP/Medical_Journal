@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { useEffect } from "react";
 
-export const BackEndLayout = () => {
+export const AdminLayout = () => {
   useEffect(() => {
     // Add h-full classes for admin backend only
     document.documentElement.classList.add("h-full", "bg-gray-50");

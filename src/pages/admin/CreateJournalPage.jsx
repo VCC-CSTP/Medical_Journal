@@ -2,7 +2,7 @@ import React from 'react'
 import { PhotoIcon, UserCircleIcon } from '@heroicons/react/24/solid'
 import { ChevronDownIcon } from '@heroicons/react/16/solid'
 
-export const SubmitJournal = () => {
+export const CreateJournalPage = () => {
   return (
     <form>
       <div className="space-y-12">

@@ -36,7 +36,7 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-export const MainBackEnd = () => {
+export const DashboardPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
