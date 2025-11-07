@@ -248,14 +248,14 @@ export const Header2 = () => {
                   >
                     Publishing Guidelines
                   </Link>
-                  <Link
+                  {/* <Link
                     to="/resources/templates"
                     onClick={() => setActiveDropdown(null)}
                     className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
                                     hover:text-primary transition-colors"
                   >
                     Templates & Forms
-                  </Link>
+                  </Link> */}
                   <Link
                     to="/resources/faq"
                     onClick={() => setActiveDropdown(null)}

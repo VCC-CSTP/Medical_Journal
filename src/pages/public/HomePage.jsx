@@ -1,7 +1,7 @@
-import React from 'react'
-import { StatsSection } from './StatsSection'
-import { FeaturedJournalsSection } from './FeaturedJournalsSection';
-import { NewsSection } from './NewsSection';
+import React from "react";
+import { StatsSection } from "../../components/StatsSection";
+import { FeaturedJournalsSection } from "../../components/FeaturedJournalsSection";
+import { NewsSection } from "../../components/NewsSection";
 
 export const HomePage = () => {
   return (
@@ -11,4 +11,4 @@ export const HomePage = () => {
       <NewsSection />
     </>
   );
-}
+};

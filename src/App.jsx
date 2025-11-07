@@ -1,40 +1,35 @@
 import { Routes, Route } from "react-router-dom";
 import "./App.css";
-import { MainLayout } from "./pages/MainLayout";
-import { BackEndLayout } from "./pages/BackEndLayout";
+import { MainLayout } from "./layouts/MainLayout";
+import { AdminLayout } from "./layouts/AdminLayout";
 
 // Importing FrontEnd pages
-import { HomePage } from "./frontend/HomePage";
-import { AboutPage } from "./frontend/AboutPage";
-import { PamjePage } from "./frontend/PamjePage";
-import { JournalsPage } from "./frontend/JournalsPage";
-import { JournalDetailPage } from "./frontend/JournalDetailPage";
-import { BrowseJournalsPage } from "./frontend/BrowseJournalsPage";
-import { FeaturedJournalsPage } from "./frontend/FeaturedJournalsPage";
-import { CategoryJournalsPage } from "./frontend/CategoryJournalsPage";
-import { EditorsResourcesPage } from "./frontend/EditorsResourcesPage";
-import { ResearchersResourcesPage } from "./frontend/ResearchersResourcesPage";
-import { GuidelinesPage } from "./frontend/GuidelinesPage";
-import { TemplatesPage } from "./frontend/TemplatesPage";
-import { FAQPage } from "./frontend/FAQPage";
-import { NewsPage } from "./frontend/NewsPage";
-import { ContactPage } from "./frontend/ContactPage";
+import { HomePage } from "./pages/public/HomePage";
+import { AboutPage } from "./pages/public/AboutPage";
+import { PamjePage } from "./pages/public/PamjePage";
+import { JournalsPage } from "./pages/public/journals/JournalsPage";
+import { JournalDetailPage } from "./pages/public/journals/JournalDetailPage";
+import { BrowseJournalsPage } from "./pages/public/journals/BrowseJournalsPage";
+import { FeaturedJournalsPage } from "./pages/public/journals/FeaturedJournalsPage";
+import { CategoryJournalsPage } from "./pages/public/journals/CategoryJournalsPage";
+import { EditorsResourcesPage } from "./pages/public/resources/EditorsResourcesPage";
+import { ResearchersResourcesPage } from "./pages/public/resources/ResearchersResourcesPage";
+import { GuidelinesPage } from "./pages/public/GuidelinesPage";
+import { FAQPage } from "./pages/public/resources/FAQPage";
+import { NewsPage } from "./pages/public/resources/NewsPage";
+import { ContactPage } from "./pages/public/ContactPage";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { RegisterPage } from "./pages/auth/RegisterPage";
-import { SearchPage } from "./frontend/SearchPage";
-import { Sponsors } from "./frontend/Sponsors";
-import { NotFoundPage } from "./frontend/NotFoundPage";
+import { SearchPage } from "./pages/public/SearchPage";
+import { Sponsors } from "./pages/public/Sponsors";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 // BackEnd pages
-import { MainBackEnd } from "./backend/MainBackEnd";
-import { SubmitJournal } from "./backend/SubmitJournal";
-import { AdminLoginPage } from "./backend/AdminLoginPage";
-
-
+import { DashboardPage } from "./pages/admin/DashboardPage";
+import { CreateJournalPage } from "./pages/admin/journals/CreateJournalPage";
+import { AdminLoginPage } from "./pages/auth/AdminLoginPage";
 
 function App() {
-
-
   return (
     <>
       <Routes>
@@ -52,7 +47,6 @@ function App() {
             path="/resources/researchers"
             element={<ResearchersResourcesPage />}
           />
-          <Route path="/resources/templates" element={<TemplatesPage />} />
           <Route path="/resources/faq" element={<FAQPage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/contact" element={<ContactPage />} />
@@ -63,16 +57,13 @@ function App() {
 
           {/* 404 Page */}
           <Route path="*" element={<NotFoundPage />} />
-
         </Route>
 
-       
-          <Route element={<BackEndLayout />}>
-            <Route path="/adm/dashboard" element={<MainBackEnd/>}/>
-            <Route path="/adm/submit/journal" element={<SubmitJournal />} />
-            <Route path="/adm/login" element={<AdminLoginPage />} />
-          </Route>
-      
+        <Route element={<AdminLayout />}>
+          <Route path="/adm/dashboard" element={<DashboardPage />} />
+          <Route path="/adm/create/journal" element={<CreateJournalPage />} />
+          <Route path="/adm/login" element={<AdminLoginPage />} />
+        </Route>
       </Routes>
     </>
   );
