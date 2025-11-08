@@ -1,502 +1,542 @@
-import React from 'react'
-import { PhotoIcon, UserCircleIcon } from '@heroicons/react/24/solid'
-import { ChevronDownIcon } from '@heroicons/react/16/solid'
+import React from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ConnectDatabase } from "../../../lib/ConnectDatabase";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 export const CreateJournalPage = () => {
-  return (
-    <form>
-      <div className="space-y-12">
-        <div className="border-b border-gray-900/10 pb-12">
-          <h2 className="text-base/7 font-semibold text-gray-900">Profile</h2>
-          <p className="mt-1 text-sm/6 text-gray-600">
-            This information will be displayed publicly so be careful what you
-            share.
-          </p>
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [organizations, setOrganizations] = useState([]);
+  const [error, setError] = useState("");
 
-          <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-            <div className="sm:col-span-4">
-              <label
-                htmlFor="username"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Username
-              </label>
-              <div className="mt-2">
-                <div className="flex items-center rounded-md bg-white pl-3 outline-1 -outline-offset-1 outline-gray-300 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
-                  <div className="shrink-0 text-base text-gray-500 select-none sm:text-sm/6">
-                    workcation.com/
-                  </div>
+  const [formData, setFormData] = useState({
+    full_title: "",
+    short_title: "",
+    acronym: "",
+    description: "", 
+    aims_scope: "",
+    website_url: "",
+    email: "", 
+    issn_print: "", 
+    issn_online: "", 
+    publication_frequency: "", 
+    journal_type: "open_access", // Changed from 'publication_policy'
+    peer_review_type: "double_blind", 
+    publisher_org_id: "",
+    society_org_id: "",
+    status: "active",
+  });
+
+  useEffect(() => {
+    fetchOrganizations();
+  }, []);
+
+  async function fetchOrganizations() {
+    try {
+      const { data, error } = await ConnectDatabase.from("organizations")
+        .select("id, org_name, org_type")
+        .eq("is_active", true)
+        .order("org_name");
+
+      if (error) throw error;
+      setOrganizations(data || []);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      setError("Failed to load organizations");
+    }
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setError("");
+  };
+
+  const validateForm = () => {
+    if (!formData.full_title.trim()) {
+      setError("Full title is required");
+      return false;
+    }
+
+    // Validate email format if provided
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError("Please enter a valid email address");
+      return false;
+    }
+
+    // Validate ISSN format if provided (XXXX-XXXX)
+    const issnRegex = /^\d{4}-\d{3}[\dX]$/;
+    if (formData.issn_print && !issnRegex.test(formData.issn_print)) {
+      setError("Print ISSN must be in format: XXXX-XXXX (e.g., 1234-5678)");
+      return false;
+    }
+    if (formData.issn_online && !issnRegex.test(formData.issn_online)) {
+      setError("Online ISSN must be in format: XXXX-XXXX (e.g., 1234-567X)");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const journalData = {
+        full_title: formData.full_title.trim(),
+        short_title: formData.short_title.trim() || null,
+        acronym: formData.acronym.trim() || null,
+        description: formData.description.trim() || null,
+        aims_scope: formData.aims_scope.trim() || null,
+        website_url: formData.website_url.trim() || null,
+        email: formData.email.trim() || null,
+        issn_print: formData.issn_print.trim() || null,
+        issn_online: formData.issn_online.trim() || null,
+        publication_frequency: formData.publication_frequency || null,
+        journal_type: formData.journal_type,
+        peer_review_type: formData.peer_review_type,
+        publisher_org_id: formData.publisher_org_id || null,
+        society_org_id: formData.society_org_id || null,
+        status: formData.status,
+      };
+
+      const { data: journal, error: insertError } = await ConnectDatabase.from(
+        "journals"
+      )
+        .insert([journalData])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Navigate to journals list with success message
+      navigate("/adm/journals", {
+        state: {
+          message: "Journal created successfully!",
+          journalId: journal.id,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating journal:", error);
+      setError(error.message || "An error occurred while creating the journal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const publishers = organizations.filter(
+    (org) => org.org_type === "publisher"
+  );
+  const societies = organizations.filter((org) => org.org_type === "society");
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate("/adm/journals")}
+            className="flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-1" />
+            Back to Journals
+          </button>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Create New Journal
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Add a new journal to the PAMJE database
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-md bg-red-50 p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">{error}</h3>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Form */}
+        <div className="bg-white shadow rounded-lg">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* Basic Information */}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
+                Basic Information
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="full_title"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Full Title *
+                  </label>
                   <input
-                    id="username"
-                    name="username"
                     type="text"
-                    placeholder="janesmith"
-                    className="block min-w-0 grow bg-white py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
+                    name="full_title"
+                    id="full_title"
+                    required
+                    value={formData.full_title}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Philippine Journal of Internal Medicine"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="short_title"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Short Title
+                    </label>
+                    <input
+                      type="text"
+                      name="short_title"
+                      id="short_title"
+                      value={formData.short_title}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Phil J Intern Med"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="acronym"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Acronym
+                    </label>
+                    <input
+                      type="text"
+                      name="acronym"
+                      id="acronym"
+                      value={formData.acronym}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="PJIM"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="website_url"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Website URL
+                    </label>
+                    <input
+                      type="url"
+                      name="website_url"
+                      id="website_url"
+                      value={formData.website_url}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="https://yourjournal.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      id="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="editor@journal.com"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="col-span-full">
-              <label
-                htmlFor="about"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                About
-              </label>
-              <div className="mt-2">
-                <textarea
-                  id="about"
-                  name="about"
-                  rows={3}
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                  defaultValue={""}
-                />
-              </div>
-              <p className="mt-3 text-sm/6 text-gray-600">
-                Write a few sentences about yourself.
-              </p>
-            </div>
+            {/* Publication Details */}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
+                Publication Details
+              </h2>
 
-            <div className="col-span-full">
-              <label
-                htmlFor="photo"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Photo
-              </label>
-              <div className="mt-2 flex items-center gap-x-3">
-                <UserCircleIcon
-                  aria-hidden="true"
-                  className="size-12 text-gray-300"
-                />
-                <button
-                  type="button"
-                  className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs inset-ring inset-ring-gray-300 hover:bg-gray-50"
-                >
-                  Change
-                </button>
-              </div>
-            </div>
-
-            <div className="col-span-full">
-              <label
-                htmlFor="cover-photo"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Cover photo
-              </label>
-              <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                <div className="text-center">
-                  <PhotoIcon
-                    aria-hidden="true"
-                    className="mx-auto size-12 text-gray-300"
-                  />
-                  <div className="mt-4 flex text-sm/6 text-gray-600">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
                     <label
-                      htmlFor="file-upload"
-                      className="relative cursor-pointer rounded-md bg-transparent font-semibold text-indigo-600 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 hover:text-indigo-500"
+                      htmlFor="issn_print"
+                      className="block text-sm font-medium text-gray-700"
                     >
-                      <span>Upload a file</span>
-                      <input
-                        id="file-upload"
-                        name="file-upload"
-                        type="file"
-                        className="sr-only"
-                      />
+                      Print ISSN
                     </label>
-                    <p className="pl-1">or drag and drop</p>
+                    <input
+                      type="text"
+                      name="issn_print"
+                      id="issn_print"
+                      value={formData.issn_print}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="1234-5678"
+                      maxLength="9"
+                    />
                   </div>
-                  <p className="text-xs/5 text-gray-600">
-                    PNG, JPG, GIF up to 10MB
+
+                  <div>
+                    <label
+                      htmlFor="issn_online"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Online ISSN
+                    </label>
+                    <input
+                      type="text"
+                      name="issn_online"
+                      id="issn_online"
+                      value={formData.issn_online}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="1234-567X"
+                      maxLength="9"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="publication_frequency"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Publication Frequency
+                    </label>
+                    <select
+                      name="publication_frequency"
+                      id="publication_frequency"
+                      value={formData.publication_frequency}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="">Select frequency</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="bimonthly">Bimonthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="biannual">Biannual</option>
+                      <option value="annual">Annual</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor="journal_type"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Journal Type *
+                    </label>
+                    <select
+                      name="journal_type"
+                      id="journal_type"
+                      value={formData.journal_type}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="open_access">Open Access</option>
+                      <option value="subscription">Subscription</option>
+                      <option value="hybrid">Hybrid</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="peer_review_type"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Peer Review Type *
+                    </label>
+                    <select
+                      name="peer_review_type"
+                      id="peer_review_type"
+                      value={formData.peer_review_type}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="double_blind">Double Blind</option>
+                      <option value="single_blind">Single Blind</option>
+                      <option value="open">Open</option>
+                      <option value="post_publication">Post Publication</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="status"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Status *
+                    </label>
+                    <select
+                      name="status"
+                      id="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="pending">Pending</option>
+                      <option value="discontinued">Discontinued</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="publisher_org_id"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Publisher
+                    </label>
+                    <select
+                      name="publisher_org_id"
+                      id="publisher_org_id"
+                      value={formData.publisher_org_id}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="">Select a publisher</option>
+                      {publishers.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.org_name}
+                        </option>
+                      ))}
+                    </select>
+                    {publishers.length === 0 && (
+                      <p className="mt-1 text-sm text-amber-600">
+                        No publishers found. Create one first.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="society_org_id"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Associated Society
+                    </label>
+                    <select
+                      name="society_org_id"
+                      id="society_org_id"
+                      value={formData.society_org_id}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    >
+                      <option value="">Select a society (optional)</option>
+                      {societies.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.org_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
+                Description
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="description"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    About the Journal
+                  </label>
+                  <textarea
+                    name="description"
+                    id="description"
+                    rows={4}
+                    value={formData.description}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Brief description of the journal..."
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Provide a brief overview of the journal
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="aims_scope"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Aims & Scope
+                  </label>
+                  <textarea
+                    name="aims_scope"
+                    id="aims_scope"
+                    rows={4}
+                    value={formData.aims_scope}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="What topics does the journal cover?"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Describe the scope and focus areas of the journal
                   </p>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="border-b border-gray-900/10 pb-12">
-          <h2 className="text-base/7 font-semibold text-gray-900">
-            Personal Information
-          </h2>
-          <p className="mt-1 text-sm/6 text-gray-600">
-            Use a permanent address where you can receive mail.
-          </p>
-
-          <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-            <div className="sm:col-span-3">
-              <label
-                htmlFor="first-name"
-                className="block text-sm/6 font-medium text-gray-900"
+            {/* Form Actions */}
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t">
+              <button
+                type="button"
+                onClick={() => navigate("/adm/journals")}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                First name
-              </label>
-              <div className="mt-2">
-                <input
-                  id="first-name"
-                  name="first-name"
-                  type="text"
-                  autoComplete="given-name"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div className="sm:col-span-3">
-              <label
-                htmlFor="last-name"
-                className="block text-sm/6 font-medium text-gray-900"
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Last name
-              </label>
-              <div className="mt-2">
-                <input
-                  id="last-name"
-                  name="last-name"
-                  type="text"
-                  autoComplete="family-name"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
+                {loading ? "Creating..." : "Create Journal"}
+              </button>
             </div>
-
-            <div className="sm:col-span-4">
-              <label
-                htmlFor="email"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Email address
-              </label>
-              <div className="mt-2">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div className="sm:col-span-3">
-              <label
-                htmlFor="country"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Country
-              </label>
-              <div className="mt-2 grid grid-cols-1">
-                <select
-                  id="country"
-                  name="country"
-                  autoComplete="country-name"
-                  className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                >
-                  <option>United States</option>
-                  <option>Canada</option>
-                  <option>Mexico</option>
-                </select>
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4"
-                />
-              </div>
-            </div>
-
-            <div className="col-span-full">
-              <label
-                htmlFor="street-address"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Street address
-              </label>
-              <div className="mt-2">
-                <input
-                  id="street-address"
-                  name="street-address"
-                  type="text"
-                  autoComplete="street-address"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div className="sm:col-span-2 sm:col-start-1">
-              <label
-                htmlFor="city"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                City
-              </label>
-              <div className="mt-2">
-                <input
-                  id="city"
-                  name="city"
-                  type="text"
-                  autoComplete="address-level2"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="region"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                State / Province
-              </label>
-              <div className="mt-2">
-                <input
-                  id="region"
-                  name="region"
-                  type="text"
-                  autoComplete="address-level1"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
-
-            <div className="sm:col-span-2">
-              <label
-                htmlFor="postal-code"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                ZIP / Postal code
-              </label>
-              <div className="mt-2">
-                <input
-                  id="postal-code"
-                  name="postal-code"
-                  type="text"
-                  autoComplete="postal-code"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-900/10 pb-12">
-          <h2 className="text-base/7 font-semibold text-gray-900">
-            Notifications
-          </h2>
-          <p className="mt-1 text-sm/6 text-gray-600">
-            We'll always let you know about important changes, but you pick what
-            else you want to hear about.
-          </p>
-
-          <div className="mt-10 space-y-10">
-            <fieldset>
-              <legend className="text-sm/6 font-semibold text-gray-900">
-                By email
-              </legend>
-              <div className="mt-6 space-y-6">
-                <div className="flex gap-3">
-                  <div className="flex h-6 shrink-0 items-center">
-                    <div className="group grid size-4 grid-cols-1">
-                      <input
-                        defaultChecked
-                        id="comments"
-                        name="comments"
-                        type="checkbox"
-                        aria-describedby="comments-description"
-                        className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                      />
-                      <svg
-                        fill="none"
-                        viewBox="0 0 14 14"
-                        className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-gray-950/25"
-                      >
-                        <path
-                          d="M3 8L6 11L11 3.5"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="opacity-0 group-has-checked:opacity-100"
-                        />
-                        <path
-                          d="M3 7H11"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="opacity-0 group-has-indeterminate:opacity-100"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="text-sm/6">
-                    <label
-                      htmlFor="comments"
-                      className="font-medium text-gray-900"
-                    >
-                      Comments
-                    </label>
-                    <p id="comments-description" className="text-gray-500">
-                      Get notified when someones posts a comment on a posting.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex h-6 shrink-0 items-center">
-                    <div className="group grid size-4 grid-cols-1">
-                      <input
-                        id="candidates"
-                        name="candidates"
-                        type="checkbox"
-                        aria-describedby="candidates-description"
-                        className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                      />
-                      <svg
-                        fill="none"
-                        viewBox="0 0 14 14"
-                        className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-gray-950/25"
-                      >
-                        <path
-                          d="M3 8L6 11L11 3.5"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="opacity-0 group-has-checked:opacity-100"
-                        />
-                        <path
-                          d="M3 7H11"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="opacity-0 group-has-indeterminate:opacity-100"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="text-sm/6">
-                    <label
-                      htmlFor="candidates"
-                      className="font-medium text-gray-900"
-                    >
-                      Candidates
-                    </label>
-                    <p id="candidates-description" className="text-gray-500">
-                      Get notified when a candidate applies for a job.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex h-6 shrink-0 items-center">
-                    <div className="group grid size-4 grid-cols-1">
-                      <input
-                        id="offers"
-                        name="offers"
-                        type="checkbox"
-                        aria-describedby="offers-description"
-                        className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto"
-                      />
-                      <svg
-                        fill="none"
-                        viewBox="0 0 14 14"
-                        className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-gray-950/25"
-                      >
-                        <path
-                          d="M3 8L6 11L11 3.5"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="opacity-0 group-has-checked:opacity-100"
-                        />
-                        <path
-                          d="M3 7H11"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="opacity-0 group-has-indeterminate:opacity-100"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="text-sm/6">
-                    <label
-                      htmlFor="offers"
-                      className="font-medium text-gray-900"
-                    >
-                      Offers
-                    </label>
-                    <p id="offers-description" className="text-gray-500">
-                      Get notified when a candidate accepts or rejects an offer.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend className="text-sm/6 font-semibold text-gray-900">
-                Push notifications
-              </legend>
-              <p className="mt-1 text-sm/6 text-gray-600">
-                These are delivered via SMS to your mobile phone.
-              </p>
-              <div className="mt-6 space-y-6">
-                <div className="flex items-center gap-x-3">
-                  <input
-                    defaultChecked
-                    id="push-everything"
-                    name="push-notifications"
-                    type="radio"
-                    className="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden"
-                  />
-                  <label
-                    htmlFor="push-everything"
-                    className="block text-sm/6 font-medium text-gray-900"
-                  >
-                    Everything
-                  </label>
-                </div>
-                <div className="flex items-center gap-x-3">
-                  <input
-                    id="push-email"
-                    name="push-notifications"
-                    type="radio"
-                    className="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden"
-                  />
-                  <label
-                    htmlFor="push-email"
-                    className="block text-sm/6 font-medium text-gray-900"
-                  >
-                    Same as email
-                  </label>
-                </div>
-                <div className="flex items-center gap-x-3">
-                  <input
-                    id="push-nothing"
-                    name="push-notifications"
-                    type="radio"
-                    className="relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white not-checked:before:hidden checked:border-indigo-600 checked:bg-indigo-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden"
-                  />
-                  <label
-                    htmlFor="push-nothing"
-                    className="block text-sm/6 font-medium text-gray-900"
-                  >
-                    No push notifications
-                  </label>
-                </div>
-              </div>
-            </fieldset>
-          </div>
+          </form>
         </div>
       </div>
-
-      <div className="mt-6 flex items-center justify-end gap-x-6">
-        <button type="button" className="text-sm/6 font-semibold text-gray-900">
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-        >
-          Save
-        </button>
-      </div>
-    </form>
+    </div>
   );
 };

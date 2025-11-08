@@ -1,290 +1,266 @@
-"use client";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ConnectDatabase } from "../../lib/ConnectDatabase";
+import { Link } from "react-router-dom";
 import {
-  Dialog,
-  DialogBackdrop,
-  DialogPanel,
-  TransitionChild,
-} from "@headlessui/react";
-import {
-  Bars3Icon,
-  CalendarIcon,
-  ChartPieIcon,
-  DocumentDuplicateIcon,
-  FolderIcon,
-  HomeIcon,
-  UsersIcon,
-  XMarkIcon,
+  NewspaperIcon,
+  BuildingOfficeIcon,
+  UserGroupIcon,
+  GlobeAltIcon,
 } from "@heroicons/react/24/outline";
 
-const navigation = [
-  { name: "Dashboard", href: "#", icon: HomeIcon, current: true },
-  { name: "Team", href: "#", icon: UsersIcon, current: false },
-  { name: "Projects", href: "#", icon: FolderIcon, current: false },
-  { name: "Calendar", href: "#", icon: CalendarIcon, current: false },
-  { name: "Documents", href: "#", icon: DocumentDuplicateIcon, current: false },
-  { name: "Reports", href: "#", icon: ChartPieIcon, current: false },
-];
-const teams = [
-  { id: 1, name: "Heroicons", href: "#", initial: "H", current: false },
-  { id: 2, name: "Tailwind Labs", href: "#", initial: "T", current: false },
-  { id: 3, name: "Workcation", href: "#", initial: "W", current: false },
-];
-
-function classNames(...classes) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export const DashboardPage = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stats, setStats] = useState({
+    totalJournals: 0,
+    activeJournals: 0,
+    totalOrganizations: 0,
+    totalPeople: 0,
+    totalIndexingServices: 0,
+    recentJournals: [],
+    loading: true,
+  });
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  async function fetchDashboardStats() {
+    try {
+      // Fetch journals count
+      const { count: journalsCount } = await ConnectDatabase.from("journals")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null);
+
+      // Fetch active journals count
+      const { count: activeCount } = await ConnectDatabase.from("journals")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active")
+        .is("deleted_at", null);
+
+      // Fetch organizations count
+      const { count: orgsCount } = await ConnectDatabase.from(
+        "organizations"
+      ).select("*", { count: "exact", head: true });
+
+      // Fetch people count
+      const { count: peopleCount } = await ConnectDatabase.from("people")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null);
+
+      // Fetch indexing services count
+      const { count: indexingCount } = await ConnectDatabase.from(
+        "indexing_services"
+      ).select("*", { count: "exact", head: true });
+
+      // Fetch recent journals
+      const { data: recentJournals } = await ConnectDatabase.from("journals")
+        .select(
+          `
+          id,
+          full_title,
+          short_title,
+          status,
+          created_at,
+          publisher:organizations!publisher_org_id(org_name)
+        `
+        )
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      setStats({
+        totalJournals: journalsCount || 0,
+        activeJournals: activeCount || 0,
+        totalOrganizations: orgsCount || 0,
+        totalPeople: peopleCount || 0,
+        totalIndexingServices: indexingCount || 0,
+        recentJournals: recentJournals || [],
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      setStats((prev) => ({ ...prev, loading: false }));
+    }
+  }
+
+  if (stats.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl text-gray-600">Loading dashboard...</div>
+      </div>
+    );
+  }
+
+  const statCards = [
+    {
+      name: "Total Journals",
+      value: stats.totalJournals,
+      subtext: `${stats.activeJournals} active`,
+      icon: NewspaperIcon,
+      color: "bg-blue-500",
+      link: "/adm/journals",
+    },
+    {
+      name: "Organizations",
+      value: stats.totalOrganizations,
+      subtext: "Publishers & Societies",
+      icon: BuildingOfficeIcon,
+      color: "bg-green-500",
+      link: "/adm/organizations",
+    },
+    {
+      name: "People",
+      value: stats.totalPeople,
+      subtext: "Editors & Contributors",
+      icon: UserGroupIcon,
+      color: "bg-purple-500",
+      link: "/adm/people",
+    },
+    {
+      name: "Indexing Services",
+      value: stats.totalIndexingServices,
+      subtext: "Database services",
+      icon: GlobeAltIcon,
+      color: "bg-orange-500",
+      link: "/adm/indexing",
+    },
+  ];
 
   return (
-    <>
-      {/*
-        This example requires updating your template:
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Welcome to the PAMJE Journal Management System
+          </p>
+        </div>
 
-        ```
-        <html class="h-full bg-gray-900">
-        <body class="h-full">
-        ```
-      */}
-      <div>
-        <Dialog
-          open={sidebarOpen}
-          onClose={setSidebarOpen}
-          className="relative z-50 lg:hidden"
-        >
-          <DialogBackdrop
-            transition
-            className="fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ease-linear data-closed:opacity-0"
-          />
-
-          <div className="fixed inset-0 flex">
-            <DialogPanel
-              transition
-              className="relative mr-16 flex w-full max-w-xs flex-1 transform transition duration-300 ease-in-out data-closed:-translate-x-full"
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+          {statCards.map((stat) => (
+            <Link
+              key={stat.name}
+              to={stat.link}
+              className="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow"
             >
-              <TransitionChild>
-                <div className="absolute top-0 left-full flex w-16 justify-center pt-5 duration-300 ease-in-out data-closed:opacity-0">
-                  <button
-                    type="button"
-                    onClick={() => setSidebarOpen(false)}
-                    className="-m-2.5 p-2.5"
-                  >
-                    <span className="sr-only">Close sidebar</span>
-                    <XMarkIcon
-                      aria-hidden="true"
-                      className="size-6 text-white"
-                    />
-                  </button>
-                </div>
-              </TransitionChild>
-
-              {/* Sidebar component, swap this element with another sidebar if you like */}
-              <div className="relative flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-2 before:pointer-events-none before:absolute before:inset-0 before:border-r before:border-white/10 before:bg-black/10">
-                <div className="relative flex h-16 shrink-0 items-center">
-                  <img
-                    alt="Your Company"
-                    src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=400"
-                    className="h-8 w-auto"
-                  />
-                </div>
-                <nav className="relative flex flex-1 flex-col">
-                  <ul role="list" className="flex flex-1 flex-col gap-y-7">
-                    <li>
-                      <ul role="list" className="-mx-2 space-y-1">
-                        {navigation.map((item) => (
-                          <li key={item.name}>
-                            <a
-                              href={item.href}
-                              className={classNames(
-                                item.current
-                                  ? "bg-white/5 text-white"
-                                  : "text-gray-400 hover:bg-white/5 hover:text-white",
-                                "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
-                              )}
-                            >
-                              <item.icon
-                                aria-hidden="true"
-                                className={classNames(
-                                  item.current
-                                    ? "text-white"
-                                    : "text-gray-500 group-hover:text-white",
-                                  "size-6 shrink-0"
-                                )}
-                              />
-                              {item.name}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                    <li>
-                      <div className="text-xs/6 font-semibold text-gray-500">
-                        Your teams
-                      </div>
-                      <ul role="list" className="-mx-2 mt-2 space-y-1">
-                        {teams.map((team) => (
-                          <li key={team.name}>
-                            <a
-                              href={team.href}
-                              className={classNames(
-                                team.current
-                                  ? "bg-white/5 text-white"
-                                  : "text-gray-400 hover:bg-white/5 hover:text-white",
-                                "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
-                              )}
-                            >
-                              <span
-                                className={classNames(
-                                  team.current
-                                    ? "border-white/20 text-white"
-                                    : "border-white/10 text-gray-400 group-hover:border-white/20 group-hover:text-white",
-                                  "flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white/5 text-[0.625rem] font-medium"
-                                )}
-                              >
-                                {team.initial}
-                              </span>
-                              <span className="truncate">{team.name}</span>
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  </ul>
-                </nav>
-              </div>
-            </DialogPanel>
-          </div>
-        </Dialog>
-
-        {/* Static sidebar for desktop */}
-        <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-          {/* Sidebar component, swap this element with another sidebar if you like */}
-          <div className="relative flex grow flex-col gap-y-5 overflow-y-auto border-r border-white/10 bg-gray-900 px-6 before:pointer-events-none before:absolute before:inset-0 before:bg-black/10">
-            <div className="relative flex h-16 shrink-0 items-center">
-              <img
-                alt="Your Company"
-                src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
-                className="h-8 w-auto"
-              />
-            </div>
-            <nav className="relative flex flex-1 flex-col">
-              <ul role="list" className="flex flex-1 flex-col gap-y-7">
-                <li>
-                  <ul role="list" className="-mx-2 space-y-1">
-                    {navigation.map((item) => (
-                      <li key={item.name}>
-                        <a
-                          href={item.href}
-                          className={classNames(
-                            item.current
-                              ? "bg-white/5 text-white"
-                              : "text-gray-400 hover:bg-white/5 hover:text-white",
-                            "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
-                          )}
-                        >
-                          <item.icon
-                            aria-hidden="true"
-                            className={classNames(
-                              item.current
-                                ? "text-white"
-                                : "text-gray-500 group-hover:text-white",
-                              "size-6 shrink-0"
-                            )}
-                          />
-                          {item.name}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-                <li>
-                  <div className="text-xs/6 font-semibold text-gray-500">
-                    Your teams
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className={`flex-shrink-0 ${stat.color} rounded-md p-3`}>
+                    <stat.icon className="h-6 w-6 text-white" />
                   </div>
-                  <ul role="list" className="-mx-2 mt-2 space-y-1">
-                    {teams.map((team) => (
-                      <li key={team.name}>
-                        <a
-                          href={team.href}
-                          className={classNames(
-                            team.current
-                              ? "bg-white/5 text-white"
-                              : "text-gray-400 hover:bg-white/5 hover:text-white",
-                            "group flex gap-x-3 rounded-md p-2 text-sm/6 font-semibold"
-                          )}
-                        >
-                          <span
-                            className={classNames(
-                              team.current
-                                ? "border-white/20 text-white"
-                                : "border-white/10 text-gray-400 group-hover:border-white/20 group-hover:text-white",
-                              "flex size-6 shrink-0 items-center justify-center rounded-lg border bg-white/5 text-[0.625rem] font-medium"
-                            )}
-                          >
-                            {team.initial}
-                          </span>
-                          <span className="truncate">{team.name}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-                <li className="-mx-6 mt-auto">
-                  <a
-                    href="#"
-                    className="flex items-center gap-x-4 px-6 py-3 text-sm/6 font-semibold text-white hover:bg-white/5"
-                  >
-                    <img
-                      alt=""
-                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                      className="size-8 rounded-full bg-gray-800 outline -outline-offset-1 outline-white/10"
-                    />
-                    <span className="sr-only">Your profile</span>
-                    <span aria-hidden="true">Tom Cook</span>
-                  </a>
-                </li>
-              </ul>
-            </nav>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-gray-500 truncate">
+                        {stat.name}
+                      </dt>
+                      <dd className="flex items-baseline">
+                        <div className="text-2xl font-semibold text-gray-900">
+                          {stat.value}
+                        </div>
+                      </dd>
+                      <dd className="text-sm text-gray-500">{stat.subtext}</dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white shadow rounded-lg p-6 mb-8">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Link
+              to="/adm/journals/create"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              Add Journal
+            </Link>
+            <Link
+              to="/adm/organizations/create"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+            >
+              Add Organization
+            </Link>
+            <Link
+              to="/adm/people/create"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+            >
+              Add Person
+            </Link>
+            <Link
+              to="/adm/announcements/create"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700"
+            >
+              Add Announcement
+            </Link>
           </div>
         </div>
 
-        <div className="sticky top-0 z-40 flex items-center gap-x-6 bg-gray-900 px-4 py-4 before:pointer-events-none before:absolute before:inset-0 before:border-b before:border-white/10 before:bg-black/10 sm:px-6 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="relative -m-2.5 p-2.5 text-gray-400 lg:hidden"
-          >
-            <span className="sr-only">Open sidebar</span>
-            <Bars3Icon aria-hidden="true" className="size-6" />
-          </button>
-          <div className="relative flex-1 text-sm/6 font-semibold text-white">
-            Dashboard
+        {/* Recent Journals */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-6 py-5 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">
+              Recently Added Journals
+            </h2>
           </div>
-          <a href="#" className="relative">
-            <span className="sr-only">Your profile</span>
-            <img
-              alt=""
-              src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-              className="size-8 rounded-full bg-gray-800 outline -outline-offset-1 outline-white/10"
-            />
-          </a>
-        </div>
-
-        <main className="lg:pl-72">
-          <div className="xl:pr-96">
-            <div className="px-4 py-10 sm:px-6 lg:px-8 lg:py-6">
-              {/* Main area */}
+          <ul className="divide-y divide-gray-200">
+            {stats.recentJournals.length === 0 ? (
+              <li className="px-6 py-4 text-sm text-gray-500">
+                No journals added yet.
+              </li>
+            ) : (
+              stats.recentJournals.map((journal) => (
+                <li key={journal.id} className="px-6 py-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <Link
+                        to={`/adm/journals/${journal.id}/edit`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        {journal.full_title}
+                      </Link>
+                      {journal.publisher && (
+                        <p className="text-sm text-gray-500">
+                          Publisher: {journal.publisher.org_name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          journal.status === "active"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {journal.status}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {new Date(journal.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))
+            )}
+          </ul>
+          {stats.recentJournals.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <Link
+                to="/adm/journals"
+                className="text-sm font-medium text-blue-600 hover:text-blue-800"
+              >
+                View all journals →
+              </Link>
             </div>
-          </div>
-        </main>
-
-        <aside className="fixed inset-y-0 right-0 hidden w-96 overflow-y-auto border-l border-white/10 px-4 py-6 sm:px-6 lg:px-8 xl:block">
-          {/* Secondary column (hidden on smaller screens) */}
-        </aside>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
