@@ -193,10 +193,10 @@ export const DashboardPage = () => {
               Add Person
             </Link>
             <Link
-              to="/adm/announcements/create"
+              to="/adm/indexing/create"
               className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700"
             >
-              Add Announcement
+              Add Indexing
             </Link>
           </div>
         </div>

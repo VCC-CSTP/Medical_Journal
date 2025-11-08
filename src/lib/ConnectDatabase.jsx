@@ -1,32 +1,19 @@
 import React from 'react'
 import { createClient } from "@supabase/supabase-js";
-import { useState, useEffect } from "react";
 
-    const supabase = createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-    );
+export const ConnectDatabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
-export const ConnectDatabase = () => {
+);
 
-      const [organizations, setOrganizations] = useState([]);
-      useEffect(() => {
-        getOrganizations();
-      }, []);
+export default ConnectDatabase;
 
-  async function getOrganizations() {
-    const { data } = await supabase.from("organizations").select();
-    setOrganizations(data);
-  }
+// For testing:
+// ALTER TABLE people ENABLE ROW LEVEL SECURITY;
 
-  return (
-    <>
-      <div>ConnectDatabase</div>
-      <ul className="list-inside list-disc">
-        {organizations.map((organization) => (
-          <li key={organization.org_name}>{organization.org_name}</li>
-        ))}
-      </ul>
-    </>
-  );
-}
+// CREATE POLICY "Allow anon inserts for people"
+// ON people
+// FOR INSERT
+// TO anon
+// WITH CHECK (true);

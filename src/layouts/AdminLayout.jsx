@@ -22,7 +22,7 @@ export const AdminLayout = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold text-gray-900">
-                Admin Dashboard
+                <a href="/adm">Admin Dashboard</a>
               </h1>
             </div>
             <nav className="flex items-center gap-4">

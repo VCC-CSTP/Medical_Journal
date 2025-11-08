@@ -32,6 +32,18 @@ import { DashboardPage } from "./pages/admin/DashboardPage";
 import { CreateJournalPage } from "./pages/admin/journals/CreateJournalPage";
 import { CreateOrganization } from "./pages/admin/organizations/CreateOrganization";
 import { CreatePerson } from "./pages/admin/people/CreatePerson";
+import { CreateIndexPage } from "./pages/admin/indexing/CreateIndexPage";
+
+// Admin Listings
+import { ListIndex } from "./pages/admin/indexing/ListIndex";
+import { ListPeople } from "./pages/admin/people/ListPeople";
+import { ListOrganizations } from "./pages/admin/organizations/ListOrganizations";
+import { ListJournals } from "./pages/admin/journals/ListJournals";
+// Admin Edits
+import { EditIndexPage } from "./pages/admin/indexing/EditIndexPage";
+import { EditJournalPage} from "./pages/admin/journals/EditJournalPage";
+import { EditOrganization } from "./pages/admin/organizations/EditOrganization";
+import { EditPerson } from "./pages/admin/people/EditPerson";
 
 function App() {
   return (
@@ -84,24 +96,20 @@ function App() {
 
           {/* Journals Management */}
           <Route path="journals/create" element={<CreateJournalPage />} />
-          {/* TODO: Add these routes after creating the pages
-          <Route path="journals" element={<AdminJournalsListPage />} />
+          <Route path="journals" element={<ListJournals />} />
           <Route path="journals/:id/edit" element={<EditJournalPage />} />
-          */}
 
           {/* Organizations Management */}
           <Route path="organizations/create" element={<CreateOrganization />} />
-          {/* TODO: Add these routes after creating the pages
-          <Route path="organizations" element={<AdminOrganizationsListPage />} />
+          <Route path="organizations" element={<ListOrganizations />} />
           <Route path="organizations/:id/edit" element={<EditOrganization />} />
-          */}
+ 
 
           {/* People Management */}
           <Route path="people/create" element={<CreatePerson />} />
-          {/* TODO: Add these routes after creating the pages
-          <Route path="people" element={<AdminPeopleListPage />} />
+          <Route path="people" element={<ListPeople />} />
           <Route path="people/:id/edit" element={<EditPerson />} />
-          */}
+
 
           {/* Announcements Management */}
           {/* TODO: Add announcement routes
@@ -111,11 +119,9 @@ function App() {
           */}
 
           {/* Indexing Services Management */}
-          {/* TODO: Add indexing routes
+          <Route path="indexing" element={<ListIndex />} />
           <Route path="indexing/create" element={<CreateIndexPage />} />
-          <Route path="indexing" element={<AdminIndexingListPage />} />
           <Route path="indexing/:id/edit" element={<EditIndexPage />} />
-          */}
         </Route>
 
         {/* 404 Page */}

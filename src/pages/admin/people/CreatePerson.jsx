@@ -107,9 +107,7 @@ export const CreatePerson = () => {
         is_active: true,
       };
 
-      const { data: person, error: insertError } = await ConnectDatabase.from(
-        "people"
-      )
+      const { data: person, error: insertError } = await ConnectDatabase.from("people")
         .insert([personData])
         .select()
         .single();
