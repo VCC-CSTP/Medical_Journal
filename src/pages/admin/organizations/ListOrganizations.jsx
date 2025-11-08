@@ -1,6 +1,6 @@
-import React from 'react'
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { ConnectDatabase } from "../../../lib/ConnectDatabase";
 import {
   MagnifyingGlassIcon,
@@ -10,7 +10,7 @@ import {
   EyeIcon,
   BuildingOfficeIcon,
   ArrowPathIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 
 export const ListOrganizations = () => {
   const [organizations, setOrganizations] = useState([]);
@@ -41,8 +41,9 @@ export const ListOrganizations = () => {
       setLoading(true);
       setError("");
 
-      const { data, error: fetchError } = await ConnectDatabase
-        .from("organizations")
+      const { data, error: fetchError } = await ConnectDatabase.from(
+        "organizations"
+      )
         .select("*")
         .order("org_name", { ascending: true });
 
@@ -96,8 +97,7 @@ export const ListOrganizations = () => {
     }
 
     try {
-      const { error: deleteError } = await ConnectDatabase
-        .from("organizations")
+      const { error: deleteError } = await ConnectDatabase.from("organizations")
         .delete()
         .eq("id", orgId);
 
@@ -381,7 +381,7 @@ export const ListOrganizations = () => {
 
                     <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                       <Link
-                        to={`/adm/organizations/${org.id}`}
+                        to={`/adm/organizations/${org.id}/edit`}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" />
@@ -469,7 +469,7 @@ export const ListOrganizations = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        <Link to={`/adm/organizations/${org.id}`} className="text-blue-600 hover:text-blue-900" title="View">
+                        <Link to={`/adm/organizations/${org.id}/edit`} className="text-blue-600 hover:text-blue-900" title="View">
                           <EyeIcon className="h-5 w-5" />
                         </Link>
                         <Link to={`/adm/organizations/${org.id}/edit`} className="text-indigo-600 hover:text-indigo-900" title="Edit">

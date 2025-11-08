@@ -1,6 +1,6 @@
-import React from 'react'
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { ConnectDatabase } from "../../../lib/ConnectDatabase";
 import {
   MagnifyingGlassIcon,
@@ -11,8 +11,7 @@ import {
   BookmarkIcon,
   ArrowPathIcon,
   GlobeAltIcon,
-} from '@heroicons/react/24/outline';
-
+} from "@heroicons/react/24/outline";
 
 export const ListIndex = () => {
   const [indexingServices, setIndexingServices] = useState([]);
@@ -43,8 +42,9 @@ export const ListIndex = () => {
       setLoading(true);
       setError("");
 
-      const { data, error: fetchError } = await ConnectDatabase
-        .from("indexing_services")
+      const { data, error: fetchError } = await ConnectDatabase.from(
+        "indexing_services"
+      )
         .select("*")
         .order("service_name", { ascending: true });
 
@@ -63,17 +63,16 @@ export const ListIndex = () => {
   const fetchJournalCounts = async () => {
     try {
       // Get count of journals for each indexing service
-      const { data, error: fetchError } = await ConnectDatabase
-        .from("journal_indexing")
-        .select("service_id, journal_id");
+      const { data, error: fetchError } = await ConnectDatabase.from(
+        "journal_indexing"
+      ).select("service_id, journal_id");
 
       if (fetchError) throw fetchError;
 
       // Count journals per indexing service
       const counts = {};
       data.forEach((item) => {
-        counts[item.service_id] =
-          (counts[item.service_id] || 0) + 1;
+        counts[item.service_id] = (counts[item.service_id] || 0) + 1;
       });
 
       setJournalCounts(counts);
@@ -131,16 +130,18 @@ export const ListIndex = () => {
 
     try {
       // First delete journal_indexing associations
-      const { error: deleteAssocError } = await ConnectDatabase
-        .from("journal_indexing")
+      const { error: deleteAssocError } = await ConnectDatabase.from(
+        "journal_indexing"
+      )
         .delete()
         .eq("service_id", serviceId);
 
       if (deleteAssocError) throw deleteAssocError;
 
       // Then delete the indexing service
-      const { error: deleteError } = await ConnectDatabase
-        .from("indexing_services")
+      const { error: deleteError } = await ConnectDatabase.from(
+        "indexing_services"
+      )
         .delete()
         .eq("id", serviceId);
 
@@ -400,7 +401,7 @@ export const ListIndex = () => {
                     {/* Actions */}
                     <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                       <Link
-                        to={`/adm/indexing/${service.id}`}
+                        to={`/adm/indexing/${service.id}/edit`}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" />

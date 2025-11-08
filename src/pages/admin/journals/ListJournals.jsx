@@ -1,6 +1,6 @@
-import React from 'react'
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { ConnectDatabase } from "../../../lib/ConnectDatabase";
 import {
   MagnifyingGlassIcon,
@@ -10,7 +10,7 @@ import {
   EyeIcon,
   FunnelIcon,
   ArrowPathIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 
 export const ListJournals = () => {
   const [journals, setJournals] = useState([]);
@@ -42,8 +42,7 @@ export const ListJournals = () => {
       setLoading(true);
       setError("");
 
-      const { data, error: fetchError } = await ConnectDatabase
-        .from("journals")
+      const { data, error: fetchError } = await ConnectDatabase.from("journals")
         .select(
           `
           *,
@@ -114,8 +113,7 @@ export const ListJournals = () => {
     }
 
     try {
-      const { error: deleteError } = await ConnectDatabase
-        .from("journals")
+      const { error: deleteError } = await ConnectDatabase.from("journals")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", journalId);
 
@@ -479,7 +477,7 @@ export const ListJournals = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
                           <Link
-                            to={`/adm/journals/${journal.id}`}
+                            to={`/adm/journals/${journal.id}/edit`}
                             className="text-blue-600 hover:text-blue-900"
                             title="View"
                           >

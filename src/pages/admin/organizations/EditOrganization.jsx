@@ -169,7 +169,7 @@ export const EditOrganization = () => {
             Back to Organizations
           </button>
           <h1 className="text-3xl font-bold text-gray-900">
-            Edit Organization
+            View / Edit Organization
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Update organization information

@@ -1,6 +1,6 @@
-import React from 'react'
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { ConnectDatabase } from "../../../lib/ConnectDatabase";
 import {
   MagnifyingGlassIcon,
@@ -11,7 +11,7 @@ import {
   UserIcon,
   ArrowPathIcon,
   UserCircleIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 
 export const ListPeople = () => {
   const [people, setPeople] = useState([]);
@@ -42,8 +42,7 @@ export const ListPeople = () => {
       setLoading(true);
       setError("");
 
-      const { data, error: fetchError } = await ConnectDatabase
-        .from("people")
+      const { data, error: fetchError } = await ConnectDatabase.from("people")
         .select("*")
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
@@ -108,8 +107,7 @@ export const ListPeople = () => {
     }
 
     try {
-      const { error: deleteError } = await ConnectDatabase
-        .from("people")
+      const { error: deleteError } = await ConnectDatabase.from("people")
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", personId);
 
@@ -415,7 +413,7 @@ export const ListPeople = () => {
                     {/* Actions */}
                     <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                       <Link
-                        to={`/adm/people/${person.id}`}
+                        to={`/adm/people/${person.id}/edit`}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
                       >
                         <EyeIcon className="h-4 w-4 mr-1" />
@@ -512,7 +510,7 @@ export const ListPeople = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        <Link to={`/adm/people/${person.id}`} className="text-blue-600 hover:text-blue-900" title="View">
+                        <Link to={`/adm/people/${person.id}/edit`} className="text-blue-600 hover:text-blue-900" title="View">
                           <EyeIcon className="h-5 w-5" />
                         </Link>
                         <Link to={`/adm/people/${person.id}/edit`} className="text-indigo-600 hover:text-indigo-900" title="Edit">

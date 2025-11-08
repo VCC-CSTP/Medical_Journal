@@ -178,7 +178,7 @@ export const EditIndexPage = () => {
             <BookmarkIcon className="h-8 w-8 text-blue-600 mr-3" />
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Edit Indexing Service
+                View / Edit Indexing Service
               </h1>
               <p className="mt-1 text-sm text-gray-600">
                 Update indexing service information

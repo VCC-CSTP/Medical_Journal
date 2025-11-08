@@ -205,7 +205,9 @@ export const EditPerson = () => {
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to People
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Person</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            View / Edit Person
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
             Update information for this person
           </p>

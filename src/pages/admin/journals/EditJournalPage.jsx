@@ -112,7 +112,7 @@ export const EditJournalPage = () => {
       return false;
     }
 
-    // Validate ISSN format if provided (XXXX-XXXX)
+    // Validate format
     const issnRegex = /^\d{4}-\d{3}[\dX]$/;
     if (formData.issn_print && !issnRegex.test(formData.issn_print)) {
       setError("Print ISSN must be in format: XXXX-XXXX (e.g., 1234-5678)");
@@ -210,7 +210,9 @@ export const EditJournalPage = () => {
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to Journals
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Journal</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            View / Edit Journal
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
             Update journal information
           </p>
