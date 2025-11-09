@@ -1,4 +1,4 @@
-// src/components/Header.jsx
+// src/components/Header2.jsx
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -7,13 +7,47 @@ import {
   XMarkIcon,
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
+import ConnectDatabase from "../lib/ConnectDatabase";
 
 export const Header2 = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+
+  // Check authentication status
+  useEffect(() => {
+    checkUser();
+
+    // Listen for auth changes
+    const { data: authListener } = ConnectDatabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const {
+        data: { user },
+      } = await ConnectDatabase.auth.getUser();
+      setUser(user);
+    } catch (error) {
+      console.error("Error checking user:", error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -51,19 +85,12 @@ export const Header2 = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <div className="size-20 bg-primary flex items-center justify-center">
-              {/* <span className="text-white font-bold text-xl">P</span> */}
               <img
                 src="/src/assets/central-logo.svg"
                 alt="CENTRAL Logo"
                 className="w-32 h-32 mb-2"
               />
             </div>
-            {/* <div className="hidden sm:block">
-              <h1 className="text-xl font-bold text-primary">Central</h1>
-              <p className="text-xs text-secondary">
-                Medical Journal Reference System
-              </p>
-            </div> */}
           </Link>
 
           {/* Center Search Box */}
@@ -194,9 +221,17 @@ export const Header2 = () => {
                     className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
                                     hover:text-primary transition-colors"
                   >
-                    Catergory Journals
+                    Category Journals
                   </Link>
                   <div className="border-t border-gray-200 my-2"></div>
+                  <Link
+                    to="/journals/submit"
+                    onClick={() => setActiveDropdown(null)}
+                    className="block px-4 py-2 text-primary font-medium hover:bg-blue-50 
+                                    transition-colors"
+                  >
+                    Submit a Journal
+                  </Link>
                 </div>
               )}
             </li>
@@ -239,7 +274,6 @@ export const Header2 = () => {
                   >
                     For Researchers
                   </Link>
-                  <div className="border-t border-gray-200 my-2"></div>
                   <Link
                     to="/resources/guidelines"
                     onClick={() => setActiveDropdown(null)}
@@ -248,14 +282,14 @@ export const Header2 = () => {
                   >
                     Publishing Guidelines
                   </Link>
-                  {/* <Link
+                  <Link
                     to="/resources/templates"
                     onClick={() => setActiveDropdown(null)}
                     className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
                                     hover:text-primary transition-colors"
                   >
                     Templates & Forms
-                  </Link> */}
+                  </Link>
                   <Link
                     to="/resources/faq"
                     onClick={() => setActiveDropdown(null)}
@@ -268,7 +302,7 @@ export const Header2 = () => {
               )}
             </li>
 
-            {/* NEWS AND ANNOUNCEMENTS */}
+            {/* NEWS & ANNOUNCEMENTS */}
             <li>
               <Link
                 to="/news"
@@ -290,78 +324,81 @@ export const Header2 = () => {
               </Link>
             </li>
 
-            {/* PEER REVIEWERS*/}
-            <li>
-              <Link
-                to="/peer-reviewers"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
+            {/* Conditional Menu Items - Desktop */}
+            {!loading && (
+              <>
+                {!user ? (
+                  <>
+                    {/* This should show up only when NOT logged in */}
+
+                    {/* Divider */}
+                    <li className="h-8 w-px bg-gray-300 mx-2"></li>
+
+                    {/* LOG IN */}
+                    <li>
+                      <Link
+                        to="/login"
+                        className="block px-4 py-3 text-gray-700 hover:text-primary 
                                 hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                PEER REVIEWERS
-              </Link>
-            </li>
+                      >
+                        LOG IN
+                      </Link>
+                    </li>
 
-            {/* THis should show up only when not logged in */}
-
-            {/* Divider */}
-            <li className="h-8 w-px bg-gray-300 mx-2"></li>
-
-            {/* LOG IN */}
-            <li>
-              <Link
-                to="/login"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
-                                hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                LOG IN
-              </Link>
-            </li>
-
-            {/* REGISTER */}
-            <li>
-              <Link
-                to="/register"
-                className="block px-4 py-2 mx-2 bg-primary text-white rounded-lg 
+                    {/* REGISTER */}
+                    <li>
+                      <Link
+                        to="/register"
+                        className="block px-4 py-2 mx-2 bg-primary text-white rounded-lg 
                                 hover:bg-primary-hover transition-all duration-200 font-medium"
-              >
-                REGISTER
-              </Link>
-            </li>
+                      >
+                        REGISTER
+                      </Link>
+                    </li>
 
-            {/* This should show up only when NOT logged in */}
+                    {/* This should show up only when NOT logged in */}
+                  </>
+                ) : (
+                  <>
+                    {/* This should show up only when logged in */}
 
-            {/* THis should show up only when logged in */}
+                    {/* Divider */}
+                    <li className="h-8 w-px bg-gray-300 mx-2"></li>
 
-            {/* LOGOUT */}
-            <li>
-              <Link
-                to="/logout"
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
+                    {/* ACCOUNT - This should have access to user UID and loads a public profile edit page */}
+                    <li>
+                      <Link
+                        to="/user-account"
+                        className="block px-4 py-3 text-gray-700 hover:text-primary 
                                 hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                LOGOUT
-              </Link>
-            </li>
+                      >
+                        ACCOUNT
+                      </Link>
+                    </li>
 
-            {/* ACCOUNT THis should have access to user UID and loads a public profile edit page */}
-            <li>
-              <Link
-                to="/user-account" 
-                className="block px-4 py-3 text-gray-700 hover:text-primary 
+                    {/* LOGOUT */}
+                    <li>
+                      <Link
+                        to="/logout"
+                        className="block px-4 py-3 text-gray-700 hover:text-primary 
                                 hover:bg-blue-50 transition-all duration-200 font-medium"
-              >
-                ACCOUNT
-              </Link>
-            </li>
+                      >
+                        LOGOUT
+                      </Link>
+                    </li>
 
-            {/* THis should show up only when logged in */}
+                    {/* This should show up only when logged in */}
+                  </>
+                )}
+              </>
+            )}
           </ul>
         </nav>
 
-        {/* Mobile Menu */}
+        {/* Mobile Navigation */}
         {isMenuOpen && (
-          <nav className="lg:hidden border-t border-gray-200 py-4 animate-fade-in">
-            <ul className="flex flex-col gap-2">
+          <nav className="lg:hidden border-t border-gray-200">
+            <ul className="flex flex-col gap-2 py-4">
               <li>
                 <Link
                   to="/"
@@ -552,29 +589,74 @@ export const Header2 = () => {
                 </Link>
               </li>
 
-              {/* Divider */}
-              <li className="border-t border-gray-200 my-2"></li>
+              {/* Conditional Menu Items - Mobile */}
+              {!loading && (
+                <>
+                  {/* Divider */}
+                  <li className="border-t border-gray-200 my-2"></li>
 
-              <li>
-                <Link
-                  to="/login"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
+                  {!user ? (
+                    <>
+                      {/* Show when NOT logged in */}
+                      <li>
+                        <Link
+                          to="/login"
+                          onClick={closeMenu}
+                          className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
                                 hover:text-primary transition-colors rounded"
-                >
-                  LOG IN
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/register"
-                  onClick={closeMenu}
-                  className="block px-4 py-2 mx-4 bg-primary text-white rounded-lg 
+                        >
+                          LOG IN
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/register"
+                          onClick={closeMenu}
+                          className="block px-4 py-2 mx-4 bg-primary text-white rounded-lg 
                                 hover:bg-primary-hover transition-colors text-center font-medium"
-                >
-                  REGISTER
-                </Link>
-              </li>
+                        >
+                          REGISTER
+                        </Link>
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      {/* Show when logged in */}
+
+                      <li>
+                        <Link
+                          to="/user-account"
+                          onClick={closeMenu}
+                          className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
+                                hover:text-primary transition-colors rounded"
+                        >
+                          ACCOUNT
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/logout"
+                          onClick={closeMenu}
+                          className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
+                                hover:text-primary transition-colors rounded"
+                        >
+                          LOGOUT
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          to="/peer-reviewers"
+                          onClick={closeMenu}
+                          className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
+                                hover:text-primary transition-colors rounded"
+                        >
+                          REVIEWERS
+                        </Link>
+                      </li>
+                    </>
+                  )}
+                </>
+              )}
             </ul>
           </nav>
         )}

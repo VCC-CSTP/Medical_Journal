@@ -48,6 +48,7 @@ import { EditIndexPage } from "./pages/admin/indexing/EditIndexPage";
 import { EditJournalPage} from "./pages/admin/journals/EditJournalPage";
 import { EditOrganization } from "./pages/admin/organizations/EditOrganization";
 import { EditPerson } from "./pages/admin/people/EditPerson";
+import { AccountEdit } from "./pages/authenticated/AccountEdit";
 
 
 function App() {
@@ -90,10 +91,11 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/logout" element={<LogOut/>} />
+          <Route path="/logout" element={<LogOut />} />
 
           {/* Authenticated Routes - TODO: Add ProtectedRoute wrapper */}
           <Route path="/peer-reviewers" element={<PeoplePage />} />
+          <Route path="/user-account" element={<AccountEdit/>} />
         </Route>
 
         {/* Admin Site  Protected Route*/}

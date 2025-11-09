@@ -6,6 +6,8 @@ import {
   CheckCircleIcon,
   ArrowPathIcon,
   InformationCircleIcon,
+  DocumentArrowUpIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 
 export const RegisterPage = () => {
@@ -13,6 +15,9 @@ export const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [cvFile, setCvFile] = useState(null);
+  const [uploadingCV, setUploadingCV] = useState(false);
+
   const [formData, setFormData] = useState({
     // Basic Info
     firstName: "",
@@ -39,6 +44,44 @@ export const RegisterPage = () => {
       [name]: type === "checkbox" ? checked : value,
     }));
     setError("");
+  };
+
+  // Handle CV file selection
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+
+    if (file) {
+      // Validate file type (PDF or Word documents)
+      const validTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
+
+      if (!validTypes.includes(file.type)) {
+        setError("Please upload a valid CV file (PDF or Word document)");
+        e.target.value = "";
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        setError("CV file size must be less than 5MB");
+        e.target.value = "";
+        return;
+      }
+
+      setCvFile(file);
+      setError("");
+    }
+  };
+
+  // Remove selected CV file
+  const removeFile = () => {
+    setCvFile(null);
+    const fileInput = document.getElementById("cv-upload");
+    if (fileInput) fileInput.value = "";
   };
 
   const validateForm = () => {
@@ -99,6 +142,43 @@ export const RegisterPage = () => {
     return true;
   };
 
+  // Upload CV to Supabase Storage
+  const uploadCVToStorage = async (userId) => {
+    if (!cvFile) return null;
+
+    setUploadingCV(true);
+    try {
+      const fileExt = cvFile.name.split(".").pop();
+      const fileName = `${userId}-cv-${Date.now()}.${fileExt}`;
+      const filePath = `cvs/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await ConnectDatabase.storage
+        .from("user-documents")
+        .upload(filePath, cvFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("CV upload error:", uploadError);
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = ConnectDatabase.storage
+        .from("user-documents")
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("Error uploading CV:", error);
+      return null;
+    } finally {
+      setUploadingCV(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -133,18 +213,25 @@ export const RegisterPage = () => {
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Step 2: Update user_profiles - SET is_active = FALSE (requires admin approval)
-        await ConnectDatabase.from("user_profiles")
-          .update({
-            phone: formData.phone || null,
-            is_active: false, // 🔒 REQUIRES ADMIN APPROVAL
-          })
-          .eq("id", authData.user.id);
+        // Step 2: Upload CV if provided
+        let cvUrl = null;
+        if (cvFile) {
+          cvUrl = await uploadCVToStorage(authData.user.id);
+        }
 
-        // Step 3: Create people record (for journal editorial activities)
-        const { error: peopleError } = await ConnectDatabase.from(
-          "people"
-        ).insert({
+        // Step 3: Update user_profiles with phone number and CV URL
+        const updateData = {};
+        if (formData.phone) updateData.phone = formData.phone;
+        if (cvUrl) updateData.cv_url = cvUrl;
+
+        if (Object.keys(updateData).length > 0) {
+          await ConnectDatabase.from("user_profiles")
+            .update(updateData)
+            .eq("id", authData.user.id);
+        }
+
+        // Step 4: Create people record (for journal editorial activities)
+        const peopleData = {
           user_id: authData.user.id,
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -155,17 +242,22 @@ export const RegisterPage = () => {
           phone: formData.phone || null,
           affiliation: formData.affiliation || null,
           position: formData.position || null,
-          is_verified: false, // Will be set to true after email verification
+          is_verified: false,
           is_active: true,
-        });
+        };
+
+        if (cvUrl) peopleData.cv_url = cvUrl;
+
+        const { error: peopleError } = await ConnectDatabase.from(
+          "people"
+        ).insert(peopleData);
 
         if (peopleError) {
           console.error("Error creating people record:", peopleError);
           // Don't fail registration if people record fails
-          // Admin can manually link it later
         }
 
-        // Step 4: Link person_id to user_profiles
+        // Step 5: Link person_id to user_profiles
         if (!peopleError) {
           const { data: personData } = await ConnectDatabase.from("people")
             .select("id")
@@ -214,65 +306,45 @@ export const RegisterPage = () => {
               <CheckCircleIcon className="h-10 w-10 text-green-600" />
             </div>
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
-              Registration Submitted!
+              Registration Successful!
             </h2>
-            <div className="mt-4 space-y-3 text-sm text-gray-600">
-              <p className="text-base">
-                Thank you for registering with <strong>PAMJE</strong>!
-              </p>
-
-              {/* APPROVAL REQUIRED NOTICE */}
-              <div className="rounded-md bg-yellow-50 p-4 mt-4">
-                <div className="flex">
-                  <InformationCircleIcon className="h-5 w-5 text-yellow-400" />
-                  <div className="ml-3 text-left">
-                    <h3 className="text-sm font-medium text-yellow-800">
-                      Account Approval Required
-                    </h3>
-                    <div className="mt-2 text-sm text-yellow-700">
-                      <p>
-                        Your account is pending approval from a system
-                        administrator. You will receive an email notification
-                        once your account has been approved.
-                      </p>
-                    </div>
-                  </div>
+            <div className="mt-4 rounded-lg bg-blue-50 p-4 border border-blue-200">
+              <div className="flex items-start">
+                <InformationCircleIcon className="h-6 w-6 text-blue-600 mt-0.5 shrink-0" />
+                <div className="ml-3 text-left">
+                  <h3 className="text-sm font-semibold text-blue-900">
+                    Verify Your Email
+                  </h3>
+                  <p className="mt-2 text-sm text-blue-700">
+                    We've sent a verification email to{" "}
+                    <span className="font-semibold">{formData.email}</span>.
+                  </p>
+                  <p className="mt-2 text-sm text-blue-700">
+                    Please check your inbox and click the verification link to
+                    activate your account.
+                  </p>
+                  {cvFile && (
+                    <p className="mt-2 text-sm text-blue-700">
+                      Your CV has been uploaded successfully.
+                    </p>
+                  )}
                 </div>
               </div>
-
-              <div className="rounded-md bg-blue-50 p-4 mt-4">
-                <div className="flex">
-                  <InformationCircleIcon className="h-5 w-5 text-blue-400" />
-                  <div className="ml-3 text-left">
-                    <h3 className="text-sm font-medium text-blue-800">
-                      Next Steps:
-                    </h3>
-                    <div className="mt-2 text-sm text-blue-700">
-                      <ol className="list-decimal list-inside space-y-1">
-                        <li>Check your email inbox</li>
-                        <li>Click the verification link</li>
-                        <li>Wait for admin approval</li>
-                        <li>You'll receive an approval notification email</li>
-                        <li>Return here to sign in</li>
-                      </ol>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <p className="text-gray-500 mt-4">
-                Don't forget to check your spam folder if you don't see the
-                email within a few minutes.
-              </p>
             </div>
-            <div className="mt-8">
+            <div className="mt-6">
               <Link
                 to="/login"
-                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
               >
-                Return to Login
+                Go to Login Page
               </Link>
             </div>
+            <p className="mt-4 text-xs text-gray-500">
+              Didn't receive the email? Check your spam folder or{" "}
+              <button className="font-semibold text-indigo-600 hover:text-indigo-500">
+                resend verification email
+              </button>
+            </p>
           </div>
         </div>
       </div>
@@ -280,133 +352,56 @@ export const RegisterPage = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Left Side - Form */}
+    <div className="flex min-h-screen">
+      {/* Left Side - Registration Form */}
       <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:w-96">
-          {/* Logo and Title */}
           <div>
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-indigo-600">PAMJE</h1>
-              <p className="mt-2 text-sm text-gray-600">
-                Philippine Association of Medical Journal Editors
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-bold leading-9 tracking-tight text-gray-900">
-              Request Access
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+              Create your account
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link
-                to="/login"
-                className="font-semibold text-indigo-600 hover:text-indigo-500"
-              >
-                Sign in
-              </Link>
+              Join PAMJE to access journal management tools
             </p>
-          </div>
-
-          {/* Approval Notice */}
-          <div className="mt-6 rounded-md bg-blue-50 p-4">
-            <div className="flex">
-              <InformationCircleIcon className="h-5 w-5 text-blue-400" />
-              <div className="ml-3">
-                <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> New accounts require administrator
-                  approval before you can access the system.
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mt-6 rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <ExclamationCircleIcon className="h-5 w-5 text-red-400" />
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-red-800">{error}</p>
-                </div>
+            <div className="mt-6 rounded-lg bg-red-50 p-4 border border-red-200">
+              <div className="flex items-start">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                <p className="ml-3 text-sm text-red-700">{error}</p>
               </div>
             </div>
           )}
 
-          {/* Registration Form */}
           <div className="mt-8">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Personal Information Section */}
+              {/* Basic Information Section */}
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900">
-                  Personal Information
+                  Basic Information
                 </h3>
 
-                {/* Title */}
+                {/* First Name */}
                 <div>
                   <label
-                    htmlFor="title"
+                    htmlFor="firstName"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Title (Optional)
+                    First Name <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    id="title"
-                    name="title"
-                    value={formData.title}
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    required
+                    value={formData.firstName}
                     onChange={handleChange}
                     disabled={loading}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                  >
-                    <option value="">Select title</option>
-                    <option value="Dr.">Dr.</option>
-                    <option value="Prof.">Prof.</option>
-                    <option value="Mr.">Mr.</option>
-                    <option value="Ms.">Ms.</option>
-                    <option value="Mrs.">Mrs.</option>
-                  </select>
-                </div>
-
-                {/* Name Fields Row */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="firstName"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      First Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      required
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                      placeholder="Juan"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="lastName"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      Last Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="lastName"
-                      name="lastName"
-                      type="text"
-                      required
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      disabled={loading}
-                      className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                      placeholder="Dela Cruz"
-                    />
-                  </div>
+                    placeholder="Juan"
+                  />
                 </div>
 
                 {/* Middle Name */}
@@ -425,9 +420,57 @@ export const RegisterPage = () => {
                     onChange={handleChange}
                     disabled={loading}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="Santos"
+                    placeholder="Cruz"
                   />
                 </div>
+
+                {/* Last Name */}
+                <div>
+                  <label
+                    htmlFor="lastName"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Last Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="lastName"
+                    name="lastName"
+                    type="text"
+                    required
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
+                    placeholder="Dela Cruz"
+                  />
+                </div>
+
+                {/* Title */}
+                <div>
+                  <label
+                    htmlFor="title"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Title (Optional)
+                  </label>
+                  <input
+                    id="title"
+                    name="title"
+                    type="text"
+                    value={formData.title}
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
+                    placeholder="Dr., Prof., MD, PhD"
+                  />
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="space-y-4 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Contact Information
+                </h3>
 
                 {/* Email */}
                 <div>
@@ -447,7 +490,7 @@ export const RegisterPage = () => {
                     onChange={handleChange}
                     disabled={loading}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="you@example.com"
+                    placeholder="juan.delacruz@example.com"
                   />
                 </div>
 
@@ -516,6 +559,68 @@ export const RegisterPage = () => {
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
                     placeholder="Associate Professor"
                   />
+                </div>
+
+                {/* CV Upload */}
+                <div>
+                  <label
+                    htmlFor="cv-upload"
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    Upload CV (Optional)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Accepted formats: PDF, Word (DOC, DOCX) • Max size: 5MB
+                  </p>
+
+                  {!cvFile ? (
+                    <label
+                      htmlFor="cv-upload"
+                      className="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 hover:bg-gray-50 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <div className="text-center">
+                        <DocumentArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-600">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          PDF or Word document
+                        </p>
+                      </div>
+                      <input
+                        id="cv-upload"
+                        name="cv-upload"
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={handleFileChange}
+                        disabled={loading || uploadingCV}
+                        className="hidden"
+                      />
+                    </label>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 rounded-lg">
+                      <div className="flex items-center flex-1 min-w-0">
+                        <DocumentArrowUpIcon className="h-8 w-8 text-indigo-600 shrink-0" />
+                        <div className="ml-3 flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {cvFile.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {(cvFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeFile}
+                        disabled={loading || uploadingCV}
+                        className="ml-3 p-1 text-gray-400 hover:text-red-600 transition-colors disabled:cursor-not-allowed"
+                        title="Remove file"
+                      >
+                        <XMarkIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -611,16 +716,16 @@ export const RegisterPage = () => {
               <div>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || uploadingCV}
                   className="flex w-full justify-center items-center rounded-md bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
                     <>
                       <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
-                      Creating Account...
+                      {uploadingCV ? "Uploading CV..." : "Creating Account..."}
                     </>
                   ) : (
-                    "Submit Registration"
+                    "Create Account"
                   )}
                 </button>
               </div>
