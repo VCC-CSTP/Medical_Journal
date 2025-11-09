@@ -18,14 +18,18 @@ import { GuidelinesPage } from "./pages/public/GuidelinesPage";
 import { FAQPage } from "./pages/public/resources/FAQPage";
 import { NewsPage } from "./pages/public/resources/NewsPage";
 import { ContactPage } from "./pages/public/ContactPage";
-import { LoginPage } from "./pages/auth/LoginPage";
-import { RegisterPage } from "./pages/auth/RegisterPage";
 import { SearchPage } from "./pages/public/SearchPage";
 import { Sponsors } from "./pages/public/Sponsors";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 //Authenticated sites
+import { LoginPage } from "./pages/auth/LoginPage";
+import { RegisterPage } from "./pages/auth/RegisterPage";
 import { PeoplePage } from "./pages/authenticated/PeoplePage";
+import { ProtectedRoute } from "./pages/auth/ProtectedRoute";
+import { ForgotPassword } from "./pages/auth/ForgotPassword";
+import { ResetPassword } from "./pages/auth/ResetPassword";
+import { LogOut } from "./pages/auth/LogOut";
 
 // Admin pages
 import { DashboardPage } from "./pages/admin/DashboardPage";
@@ -44,6 +48,7 @@ import { EditIndexPage } from "./pages/admin/indexing/EditIndexPage";
 import { EditJournalPage} from "./pages/admin/journals/EditJournalPage";
 import { EditOrganization } from "./pages/admin/organizations/EditOrganization";
 import { EditPerson } from "./pages/admin/people/EditPerson";
+
 
 function App() {
   return (
@@ -83,13 +88,23 @@ function App() {
           {/* Auth Pages */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/logout" element={<LogOut/>} />
 
           {/* Authenticated Routes - TODO: Add ProtectedRoute wrapper */}
-          <Route path="/people" element={<PeoplePage />} />
+          <Route path="/peer-reviewers" element={<PeoplePage />} />
         </Route>
 
-        {/* Admin Site */}
-        <Route path="/adm" element={<AdminLayout />}>
+        {/* Admin Site  Protected Route*/}
+        <Route
+          path="/adm/*"
+          element={
+            <ProtectedRoute>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
           {/* Dashboard */}
           <Route index element={<DashboardPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -103,13 +118,11 @@ function App() {
           <Route path="organizations/create" element={<CreateOrganization />} />
           <Route path="organizations" element={<ListOrganizations />} />
           <Route path="organizations/:id/edit" element={<EditOrganization />} />
- 
 
           {/* People Management */}
           <Route path="people/create" element={<CreatePerson />} />
           <Route path="people" element={<ListPeople />} />
           <Route path="people/:id/edit" element={<EditPerson />} />
-
 
           {/* Announcements Management */}
           {/* TODO: Add announcement routes

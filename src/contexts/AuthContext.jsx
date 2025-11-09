@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "../lib/ConnectDatabase";
+import { ConnectDatabase } from "../lib/ConnectDatabase";
 
 const AuthContext = createContext({});
 
@@ -11,7 +11,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    ConnectDatabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = ConnectDatabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchUserProfile(session.user.id);
@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
 
   const fetchUserProfile = async (userId) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await ConnectDatabase
         .from("user_profiles")
         .select("*")
         .eq("id", userId)
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await ConnectDatabase.auth.signOut();
     if (error) console.error("Error signing out:", error);
   };
 

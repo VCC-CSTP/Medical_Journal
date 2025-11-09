@@ -133,13 +133,12 @@ export const RegisterPage = () => {
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Step 2: Update user_profiles - SET is_active = FALSE (requires admin approval)
-        await ConnectDatabase.from("user_profiles")
-          .update({
-            phone: formData.phone || null,
-            is_active: false, // 🔒 REQUIRES ADMIN APPROVAL
-          })
-          .eq("id", authData.user.id);
+        // Step 2: Update user_profiles with phone number (the trigger already created the record)
+        if (formData.phone) {
+          await ConnectDatabase.from("user_profiles")
+            .update({ phone: formData.phone })
+            .eq("id", authData.user.id);
+        }
 
         // Step 3: Create people record (for journal editorial activities)
         const { error: peopleError } = await ConnectDatabase.from(
@@ -214,32 +213,18 @@ export const RegisterPage = () => {
               <CheckCircleIcon className="h-10 w-10 text-green-600" />
             </div>
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
-              Registration Submitted!
+              Registration Successful!
             </h2>
             <div className="mt-4 space-y-3 text-sm text-gray-600">
               <p className="text-base">
                 Thank you for registering with <strong>PAMJE</strong>!
               </p>
-
-              {/* APPROVAL REQUIRED NOTICE */}
-              <div className="rounded-md bg-yellow-50 p-4 mt-4">
-                <div className="flex">
-                  <InformationCircleIcon className="h-5 w-5 text-yellow-400" />
-                  <div className="ml-3 text-left">
-                    <h3 className="text-sm font-medium text-yellow-800">
-                      Account Approval Required
-                    </h3>
-                    <div className="mt-2 text-sm text-yellow-700">
-                      <p>
-                        Your account is pending approval from a system
-                        administrator. You will receive an email notification
-                        once your account has been approved.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
+              <p>
+                We've sent a verification email to{" "}
+                <span className="font-medium text-gray-900">
+                  {formData.email}
+                </span>
+              </p>
               <div className="rounded-md bg-blue-50 p-4 mt-4">
                 <div className="flex">
                   <InformationCircleIcon className="h-5 w-5 text-blue-400" />
@@ -251,15 +236,12 @@ export const RegisterPage = () => {
                       <ol className="list-decimal list-inside space-y-1">
                         <li>Check your email inbox</li>
                         <li>Click the verification link</li>
-                        <li>Wait for admin approval</li>
-                        <li>You'll receive an approval notification email</li>
                         <li>Return here to sign in</li>
                       </ol>
                     </div>
                   </div>
                 </div>
               </div>
-
               <p className="text-gray-500 mt-4">
                 Don't forget to check your spam folder if you don't see the
                 email within a few minutes.
@@ -305,19 +287,6 @@ export const RegisterPage = () => {
                 Sign in
               </Link>
             </p>
-          </div>
-
-          {/* Approval Notice */}
-          <div className="mt-6 rounded-md bg-blue-50 p-4">
-            <div className="flex">
-              <InformationCircleIcon className="h-5 w-5 text-blue-400" />
-              <div className="ml-3">
-                <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> New accounts require administrator
-                  approval before you can access the system.
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* Error Message */}
@@ -620,7 +589,7 @@ export const RegisterPage = () => {
                       Creating Account...
                     </>
                   ) : (
-                    "Submit Registration"
+                    "Create Account"
                   )}
                 </button>
               </div>

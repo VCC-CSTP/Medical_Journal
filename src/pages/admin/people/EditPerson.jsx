@@ -1,8 +1,12 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ConnectDatabase } from "../../../lib/ConnectDatabase";
-import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import ConnectDatabase from "../../../lib/ConnectDatabase";
+import {
+  ArrowLeftIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 
 export const EditPerson = () => {
   const navigate = useNavigate();
@@ -10,8 +14,13 @@ export const EditPerson = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
   const [error, setError] = useState("");
+  const [hasUserAccount, setHasUserAccount] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [journals, setJournals] = useState([]);
+  const [personJournals, setPersonJournals] = useState([]);
 
   const [formData, setFormData] = useState({
+    // Basic person data
     first_name: "",
     last_name: "",
     middle_name: "",
@@ -26,47 +35,105 @@ export const EditPerson = () => {
     orcid: "",
     bio: "",
     photo_url: "",
+    is_admin: false,
+    is_active: true,
+
+    // User account data (if linked)
+    userRole: "user",
+    userIsActive: true,
   });
 
   // Fetch person data on mount
   useEffect(() => {
     fetchPersonData();
+    fetchJournals();
   }, [id]);
 
   const fetchPersonData = async () => {
     try {
       setFetchingData(true);
-      const { data, error } = await ConnectDatabase.from("people")
-        .select("*")
-        .eq("id", id)
-        .single();
 
-      if (error) throw error;
+      // Get person data
+      const { data: personData, error: personError } =
+        await ConnectDatabase.from("people").select("*").eq("id", id).single();
 
-      if (!data) {
+      if (personError) throw personError;
+      if (!personData) {
         setError("Person not found");
         return;
       }
 
+      // Check if person has a user account
+      if (personData.user_id) {
+        setHasUserAccount(true);
+        setUserId(personData.user_id);
+
+        // Get user_profiles data
+        const { data: profileData, error: profileError } =
+          await ConnectDatabase.from("user_profiles")
+            .select("role, is_active")
+            .eq("id", personData.user_id)
+            .single();
+
+        if (!profileError && profileData) {
+          setFormData((prev) => ({
+            ...prev,
+            userRole: profileData.role || "user",
+            userIsActive:
+              profileData.is_active !== undefined
+                ? profileData.is_active
+                : true,
+          }));
+        }
+      }
+
+      // Get person's journal assignments
+      const { data: journalData, error: journalError } =
+        await ConnectDatabase.from("journal_editorial_team")
+          .select(
+            `
+          id,
+          journal_id,
+          role,
+          role_type,
+          start_date,
+          end_date,
+          is_active,
+          journals:journal_id (
+            id,
+            full_title
+          )
+        `
+          )
+          .eq("person_id", id);
+
+      if (!journalError && journalData) {
+        setPersonJournals(journalData);
+      }
+
       // Pre-populate form with existing data
-      setFormData({
-        first_name: data.first_name || "",
-        last_name: data.last_name || "",
-        middle_name: data.middle_name || "",
-        title: data.title || "",
-        suffix: data.suffix || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        affiliation: data.affiliation || "",
-        position: data.position || "",
-        department: data.department || "",
-        specialization: Array.isArray(data.specialization)
-          ? data.specialization.join(", ")
-          : data.specialization || "",
-        orcid: data.orcid || "",
-        bio: data.bio || "",
-        photo_url: data.photo_url || "",
-      });
+      setFormData((prev) => ({
+        ...prev,
+        first_name: personData.first_name || "",
+        last_name: personData.last_name || "",
+        middle_name: personData.middle_name || "",
+        title: personData.title || "",
+        suffix: personData.suffix || "",
+        email: personData.email || "",
+        phone: personData.phone || "",
+        affiliation: personData.affiliation || "",
+        position: personData.position || "",
+        department: personData.department || "",
+        specialization: Array.isArray(personData.specialization)
+          ? personData.specialization.join(", ")
+          : personData.specialization || "",
+        orcid: personData.orcid || "",
+        bio: personData.bio || "",
+        photo_url: personData.photo_url || "",
+        is_admin: personData.is_admin || false,
+        is_active:
+          personData.is_active !== undefined ? personData.is_active : true,
+      }));
     } catch (error) {
       console.error("Error fetching person:", error);
       setError("Failed to load person data");
@@ -75,11 +142,25 @@ export const EditPerson = () => {
     }
   };
 
+  const fetchJournals = async () => {
+    try {
+      const { data, error } = await ConnectDatabase.from("journals")
+        .select("id, full_title")
+        .is("deleted_at", null)
+        .order("full_title");
+
+      if (error) throw error;
+      setJournals(data || []);
+    } catch (error) {
+      console.error("Error fetching journals:", error);
+    }
+  };
+
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
     setError("");
   };
@@ -135,6 +216,7 @@ export const EditPerson = () => {
         .join(" ")
         .trim();
 
+      // Update people table
       const personData = {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
@@ -148,11 +230,13 @@ export const EditPerson = () => {
         position: formData.position.trim() || null,
         department: formData.department.trim() || null,
         specialization: formData.specialization
-          ? [formData.specialization.trim()]
+          ? formData.specialization.split(",").map((s) => s.trim())
           : null,
         orcid: formData.orcid.trim() || null,
         bio: formData.bio.trim() || null,
         photo_url: formData.photo_url.trim() || null,
+        is_admin: formData.is_admin,
+        is_active: formData.is_active,
         updated_at: new Date().toISOString(),
       };
 
@@ -161,6 +245,26 @@ export const EditPerson = () => {
         .eq("id", id);
 
       if (updateError) throw updateError;
+
+      // Update user_profiles if person has a user account
+      if (hasUserAccount && userId) {
+        const { error: profileUpdateError } = await ConnectDatabase.from(
+          "user_profiles"
+        )
+          .update({
+            role: formData.userRole,
+            is_active: formData.userIsActive,
+            first_name: formData.first_name.trim(),
+            last_name: formData.last_name.trim(),
+            full_name: fullName,
+            phone: formData.phone.trim() || null,
+          })
+          .eq("id", userId);
+
+        if (profileUpdateError) {
+          console.error("Error updating user profile:", profileUpdateError);
+        }
+      }
 
       navigate("/adm/people", {
         state: {
@@ -178,6 +282,26 @@ export const EditPerson = () => {
     }
   };
 
+  const handleRemoveJournalAssignment = async (assignmentId) => {
+    if (!confirm("Are you sure you want to remove this journal assignment?")) {
+      return;
+    }
+
+    try {
+      const { error } = await ConnectDatabase.from("journal_editorial_team")
+        .delete()
+        .eq("id", assignmentId);
+
+      if (error) throw error;
+
+      // Refresh journal assignments
+      setPersonJournals((prev) => prev.filter((j) => j.id !== assignmentId));
+    } catch (error) {
+      console.error("Error removing journal assignment:", error);
+      setError("Failed to remove journal assignment");
+    }
+  };
+
   if (fetchingData) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -185,7 +309,9 @@ export const EditPerson = () => {
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-sm text-gray-600">Loading person data...</p>
+              <p className="mt-2 text-sm text-gray-600">
+                Loading person data...
+              </p>
             </div>
           </div>
         </div>
@@ -205,9 +331,7 @@ export const EditPerson = () => {
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to People
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">
-            View / Edit Person
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Edit Person</h1>
           <p className="mt-2 text-sm text-gray-600">
             Update information for this person
           </p>
@@ -226,6 +350,172 @@ export const EditPerson = () => {
         {/* Form */}
         <div className="bg-white shadow rounded-lg">
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* User Account Section */}
+            {hasUserAccount && (
+              <div className="bg-indigo-50 rounded-lg p-4">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  User Account Settings
+                </h2>
+
+                <div className="space-y-4">
+                  <div className="bg-white p-3 rounded border border-indigo-200">
+                    <p className="text-sm text-gray-600">
+                      This person has a linked user account:{" "}
+                      <span className="font-medium text-gray-900">
+                        {formData.email}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* User Role */}
+                  <div>
+                    <label
+                      htmlFor="userRole"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      System Role
+                    </label>
+                    <select
+                      id="userRole"
+                      name="userRole"
+                      value={formData.userRole}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                      <option value="user">User (Basic Access)</option>
+                      <option value="editor">Editor (Can Edit Content)</option>
+                      <option value="admin">Admin (Dashboard Access)</option>
+                      <option value="super_admin">
+                        Super Admin (Full Access)
+                      </option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Controls what the user can access in the system
+                    </p>
+                  </div>
+
+                  {/* Account Active Toggle */}
+                  <div className="flex items-start">
+                    <div className="flex items-center h-5">
+                      <input
+                        id="userIsActive"
+                        name="userIsActive"
+                        type="checkbox"
+                        checked={formData.userIsActive}
+                        onChange={handleChange}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                      />
+                    </div>
+                    <div className="ml-3 text-sm">
+                      <label
+                        htmlFor="userIsActive"
+                        className="font-medium text-gray-700"
+                      >
+                        User Account Active
+                      </label>
+                      <p className="text-gray-500">
+                        User can log in and access the system
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!hasUserAccount && (
+              <div className="bg-yellow-50 rounded-lg p-4">
+                <h2 className="text-sm font-medium text-yellow-800 mb-2">
+                  No User Account Linked
+                </h2>
+                <p className="text-sm text-yellow-700 mb-3">
+                  This person does not have a user account. They cannot log in
+                  to the system.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/adm/people/${id}/create-account`)}
+                  className="inline-flex items-center px-3 py-2 border border-yellow-800 rounded-md shadow-sm text-sm font-medium text-yellow-800 bg-white hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                >
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Create User Account
+                </button>
+              </div>
+            )}
+
+            {/* Journal Assignments */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">
+                Journal Editorial Assignments
+              </h2>
+
+              {personJournals.length > 0 ? (
+                <div className="space-y-3">
+                  {personJournals.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="bg-white p-4 rounded border border-gray-200 flex justify-between items-start"
+                    >
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {assignment.journals?.full_title || "Unknown Journal"}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          <span className="font-medium">Role:</span>{" "}
+                          {assignment.role || "N/A"}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {assignment.start_date && (
+                            <>
+                              Started:{" "}
+                              {new Date(
+                                assignment.start_date
+                              ).toLocaleDateString()}
+                            </>
+                          )}
+                          {assignment.end_date && (
+                            <>
+                              {" "}
+                              • Ended:{" "}
+                              {new Date(
+                                assignment.end_date
+                              ).toLocaleDateString()}
+                            </>
+                          )}
+                          {!assignment.is_active && (
+                            <span className="ml-2 text-red-600">
+                              (Inactive)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleRemoveJournalAssignment(assignment.id)
+                        }
+                        className="ml-4 text-red-600 hover:text-red-800"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No journal assignments yet.
+                </p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => navigate(`/adm/people/${id}/assign-journal`)}
+                className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Assign to Journal
+              </button>
+            </div>
+
             {/* Personal Information */}
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
@@ -348,6 +638,56 @@ export const EditPerson = () => {
                     />
                   </div>
                 </div>
+
+                {/* Is Admin Toggle */}
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="is_admin"
+                      name="is_admin"
+                      type="checkbox"
+                      checked={formData.is_admin}
+                      onChange={handleChange}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label
+                      htmlFor="is_admin"
+                      className="font-medium text-gray-700"
+                    >
+                      Mark as Admin (in People table)
+                    </label>
+                    <p className="text-gray-500">
+                      Affects journal editorial permissions
+                    </p>
+                  </div>
+                </div>
+
+                {/* Is Active Toggle */}
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="is_active"
+                      name="is_active"
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={handleChange}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label
+                      htmlFor="is_active"
+                      className="font-medium text-gray-700"
+                    >
+                      Person Active
+                    </label>
+                    <p className="text-gray-500">
+                      Can be assigned to journals and editorial teams
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -372,9 +712,15 @@ export const EditPerson = () => {
                       id="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      disabled={hasUserAccount}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
                       placeholder="juan.delacruz@example.com"
                     />
+                    {hasUserAccount && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Email is managed through the user account
+                      </p>
+                    )}
                   </div>
 
                   <div>

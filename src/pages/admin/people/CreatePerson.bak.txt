@@ -1,35 +1,21 @@
 import React from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ConnectDatabase from "../../../lib/ConnectDatabase";
-import {
-  ArrowLeftIcon,
-  EyeIcon,
-  EyeSlashIcon,
-} from "@heroicons/react/24/outline";
+import { ConnectDatabase } from "../../../lib/ConnectDatabase";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 
 export const CreatePerson = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    // User Account Section
-    createUserAccount: false,
-    email: "",
-    accountPassword: "",
-    confirmAccountPassword: "",
-    userRole: "user",
-    is_admin: false,
-    is_active: true,
-
-    // Personal Information
     first_name: "",
     last_name: "",
     middle_name: "",
     title: "", // Dr., Prof., etc.
     suffix: "", // Jr., Sr., III
+    email: "",
     phone: "",
     affiliation: "",
     position: "",
@@ -41,10 +27,10 @@ export const CreatePerson = () => {
   });
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value,
     }));
     setError("");
   };
@@ -59,35 +45,7 @@ export const CreatePerson = () => {
       return false;
     }
 
-    // If creating user account, validate account-related fields
-    if (formData.createUserAccount) {
-      if (!formData.email.trim()) {
-        setError("Email is required when creating a user account");
-        return false;
-      }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-        setError("Please enter a valid email address");
-        return false;
-      }
-
-      if (!formData.accountPassword) {
-        setError("Password is required when creating a user account");
-        return false;
-      }
-
-      if (formData.accountPassword.length < 8) {
-        setError("Password must be at least 8 characters");
-        return false;
-      }
-
-      if (formData.accountPassword !== formData.confirmAccountPassword) {
-        setError("Passwords do not match");
-        return false;
-      }
-    }
-
-    // Validate email format if provided (even if not creating account)
+    // Validate email format if provided
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       setError("Please enter a valid email address");
       return false;
@@ -116,55 +74,7 @@ export const CreatePerson = () => {
     setError("");
 
     try {
-      let userId = null;
-
-      // Step 1: Create user account if requested
-      if (formData.createUserAccount) {
-        const fullName = [
-          formData.title,
-          formData.first_name,
-          formData.middle_name,
-          formData.last_name,
-          formData.suffix,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .trim();
-
-        // Create auth.user
-        const { data: authData, error: signUpError } =
-          await ConnectDatabase.auth.signUp({
-            email: formData.email.trim().toLowerCase(),
-            password: formData.accountPassword,
-            options: {
-              data: {
-                first_name: formData.first_name,
-                last_name: formData.last_name,
-                full_name: fullName,
-              },
-              emailRedirectTo: `${window.location.origin}/login`,
-            },
-          });
-
-        if (signUpError) throw signUpError;
-
-        if (!authData.user) {
-          throw new Error("Failed to create user account");
-        }
-
-        userId = authData.user.id;
-
-        // Update user_profiles with role and settings
-        await ConnectDatabase.from("user_profiles")
-          .update({
-            phone: formData.phone || null,
-            role: formData.userRole,
-            is_active: formData.is_active,
-          })
-          .eq("id", userId);
-      }
-
-      // Step 2: Construct full name
+      // Construct full name
       const fullName = [
         formData.title,
         formData.first_name,
@@ -176,9 +86,7 @@ export const CreatePerson = () => {
         .join(" ")
         .trim();
 
-      // Step 3: Create people record
       const personData = {
-        user_id: userId, // Will be null if no account created
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
         middle_name: formData.middle_name.trim() || null,
@@ -196,32 +104,19 @@ export const CreatePerson = () => {
         orcid: formData.orcid.trim() || null,
         bio: formData.bio.trim() || null,
         photo_url: formData.photo_url.trim() || null,
-        is_admin: formData.is_admin,
         is_active: true,
-        is_verified: formData.createUserAccount ? false : true, // Verified if no account
       };
 
-      const { data: person, error: insertError } = await ConnectDatabase.from(
-        "people"
-      )
+      const { data: person, error: insertError } = await ConnectDatabase.from("people")
         .insert([personData])
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // Step 4: Link person_id back to user_profiles if account was created
-      if (userId && person) {
-        await ConnectDatabase.from("user_profiles")
-          .update({ person_id: person.id })
-          .eq("id", userId);
-      }
-
       navigate("/adm/people", {
         state: {
-          message: formData.createUserAccount
-            ? "Person and user account created successfully! Verification email sent."
-            : "Person created successfully!",
+          message: "Person created successfully!",
           personId: person.id,
         },
       });
@@ -268,198 +163,6 @@ export const CreatePerson = () => {
         {/* Form */}
         <div className="bg-white shadow rounded-lg">
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* User Account Section */}
-            <div className="bg-indigo-50 rounded-lg p-4">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
-                User Account (Optional)
-              </h2>
-
-              <div className="space-y-4">
-                {/* Create Account Toggle */}
-                <div className="flex items-start">
-                  <div className="flex items-center h-5">
-                    <input
-                      id="createUserAccount"
-                      name="createUserAccount"
-                      type="checkbox"
-                      checked={formData.createUserAccount}
-                      onChange={handleChange}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    />
-                  </div>
-                  <div className="ml-3 text-sm">
-                    <label
-                      htmlFor="createUserAccount"
-                      className="font-medium text-gray-700"
-                    >
-                      Create user account for this person
-                    </label>
-                    <p className="text-gray-500">
-                      This will allow them to log in to the system
-                    </p>
-                  </div>
-                </div>
-
-                {/* Account Fields (shown only if createUserAccount is true) */}
-                {formData.createUserAccount && (
-                  <div className="space-y-4 mt-4 pt-4 border-t border-indigo-200">
-                    {/* Email (required for account) */}
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Email Address *
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        id="email"
-                        required={formData.createUserAccount}
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="juan.delacruz@example.com"
-                      />
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <label
-                        htmlFor="accountPassword"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Password *
-                      </label>
-                      <div className="mt-1 relative">
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          name="accountPassword"
-                          id="accountPassword"
-                          required={formData.createUserAccount}
-                          value={formData.accountPassword}
-                          onChange={handleChange}
-                          className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                          placeholder="••••••••"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        >
-                          {showPassword ? (
-                            <EyeSlashIcon className="h-5 w-5 text-gray-400" />
-                          ) : (
-                            <EyeIcon className="h-5 w-5 text-gray-400" />
-                          )}
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Minimum 8 characters
-                      </p>
-                    </div>
-
-                    {/* Confirm Password */}
-                    <div>
-                      <label
-                        htmlFor="confirmAccountPassword"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Confirm Password *
-                      </label>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        name="confirmAccountPassword"
-                        id="confirmAccountPassword"
-                        required={formData.createUserAccount}
-                        value={formData.confirmAccountPassword}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                        placeholder="••••••••"
-                      />
-                    </div>
-
-                    {/* User Role */}
-                    <div>
-                      <label
-                        htmlFor="userRole"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        User Role
-                      </label>
-                      <select
-                        id="userRole"
-                        name="userRole"
-                        value={formData.userRole}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      >
-                        <option value="user">User (Basic Access)</option>
-                        <option value="editor">
-                          Editor (Can Edit Content)
-                        </option>
-                        <option value="admin">Admin (Dashboard Access)</option>
-                        <option value="super_admin">
-                          Super Admin (Full Access)
-                        </option>
-                      </select>
-                    </div>
-
-                    {/* Is Admin Toggle */}
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          id="is_admin"
-                          name="is_admin"
-                          type="checkbox"
-                          checked={formData.is_admin}
-                          onChange={handleChange}
-                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                        />
-                      </div>
-                      <div className="ml-3 text-sm">
-                        <label
-                          htmlFor="is_admin"
-                          className="font-medium text-gray-700"
-                        >
-                          Mark as Admin in People table
-                        </label>
-                        <p className="text-gray-500">
-                          This is separate from the user role and affects
-                          journal editorial permissions
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Is Active Toggle */}
-                    <div className="flex items-start">
-                      <div className="flex items-center h-5">
-                        <input
-                          id="is_active"
-                          name="is_active"
-                          type="checkbox"
-                          checked={formData.is_active}
-                          onChange={handleChange}
-                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                        />
-                      </div>
-                      <div className="ml-3 text-sm">
-                        <label
-                          htmlFor="is_active"
-                          className="font-medium text-gray-700"
-                        >
-                          Account Active
-                        </label>
-                        <p className="text-gray-500">
-                          Uncheck to create the account in disabled state
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Personal Information */}
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
@@ -540,13 +243,13 @@ export const CreatePerson = () => {
                       value={formData.last_name}
                       onChange={handleChange}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Dela Cruz"
+                      placeholder="dela Cruz"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+                  <div className="sm:col-span-1">
                     <label
                       htmlFor="suffix"
                       className="block text-sm font-medium text-gray-700"
@@ -564,7 +267,7 @@ export const CreatePerson = () => {
                     />
                   </div>
 
-                  <div>
+                  <div className="sm:col-span-3">
                     <label
                       htmlFor="photo_url"
                       className="block text-sm font-medium text-gray-700"
@@ -593,29 +296,25 @@ export const CreatePerson = () => {
 
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {!formData.createUserAccount && (
-                    <div>
-                      <label
-                        htmlFor="email"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        id="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        placeholder="juan.delacruz@example.com"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      id="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="juan.delacruz@example.com"
+                    />
+                  </div>
 
-                  <div
-                    className={formData.createUserAccount ? "col-span-2" : ""}
-                  >
+                  <div>
                     <label
                       htmlFor="phone"
                       className="block text-sm font-medium text-gray-700"
@@ -781,11 +480,7 @@ export const CreatePerson = () => {
                 disabled={loading}
                 className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading
-                  ? "Creating..."
-                  : formData.createUserAccount
-                  ? "Create Person & Account"
-                  : "Create Person"}
+                {loading ? "Creating..." : "Create Person"}
               </button>
             </div>
           </form>

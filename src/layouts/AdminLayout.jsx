@@ -33,9 +33,13 @@ export const AdminLayout = () => {
               >
                 View Site
               </a>
-              <button className="text-sm text-gray-600 hover:text-gray-900">
-                Logout
-              </button>
+              <a
+                href="/logout"
+                className="text-sm text-gray-600 hover:text-gray-900 border-2 border-orange-500 p-1 rounded-md"
+                target="_blank"
+              >
+                Log Out
+              </a>
             </nav>
           </div>
         </div>

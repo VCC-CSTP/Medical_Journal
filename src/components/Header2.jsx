@@ -53,10 +53,10 @@ export const Header2 = () => {
             <div className="size-20 bg-primary flex items-center justify-center">
               {/* <span className="text-white font-bold text-xl">P</span> */}
               <img
-                  src="/src/assets/central-logo.svg"
-                  alt="CENTRAL Logo"
-                  className="w-32 h-32 mb-2"
-                />
+                src="/src/assets/central-logo.svg"
+                alt="CENTRAL Logo"
+                className="w-32 h-32 mb-2"
+              />
             </div>
             {/* <div className="hidden sm:block">
               <h1 className="text-xl font-bold text-primary">Central</h1>
@@ -290,6 +290,19 @@ export const Header2 = () => {
               </Link>
             </li>
 
+            {/* PEER REVIEWERS*/}
+            <li>
+              <Link
+                to="/peer-reviewers"
+                className="block px-4 py-3 text-gray-700 hover:text-primary 
+                                hover:bg-blue-50 transition-all duration-200 font-medium"
+              >
+                PEER REVIEWERS
+              </Link>
+            </li>
+
+            {/* THis should show up only when not logged in */}
+
             {/* Divider */}
             <li className="h-8 w-px bg-gray-300 mx-2"></li>
 
@@ -314,6 +327,34 @@ export const Header2 = () => {
                 REGISTER
               </Link>
             </li>
+
+            {/* This should show up only when NOT logged in */}
+
+            {/* THis should show up only when logged in */}
+
+            {/* LOGOUT */}
+            <li>
+              <Link
+                to="/logout"
+                className="block px-4 py-3 text-gray-700 hover:text-primary 
+                                hover:bg-blue-50 transition-all duration-200 font-medium"
+              >
+                LOGOUT
+              </Link>
+            </li>
+
+            {/* ACCOUNT THis should have access to user UID and loads a public profile edit page */}
+            <li>
+              <Link
+                to="/user-account" 
+                className="block px-4 py-3 text-gray-700 hover:text-primary 
+                                hover:bg-blue-50 transition-all duration-200 font-medium"
+              >
+                ACCOUNT
+              </Link>
+            </li>
+
+            {/* THis should show up only when logged in */}
           </ul>
         </nav>
 
