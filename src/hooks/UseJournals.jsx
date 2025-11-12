@@ -143,6 +143,7 @@ export const useJournals = (options = {}) => {
 };
 
 /**
+ * Ijust need to update thig
  * Hook to fetch a single journal by ID
  * @param {string} journalId - Journal UUID
  * @returns {Object} { journal, loading, error }
