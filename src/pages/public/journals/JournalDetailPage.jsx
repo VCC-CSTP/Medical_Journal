@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
-import { useJournal } from "../../../hooks/useJournals";
+import { useJournal } from "../../hooks/useJournals";
 import {
   GlobeAltIcon,
   EnvelopeIcon,

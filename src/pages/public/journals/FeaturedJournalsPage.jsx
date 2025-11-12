@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useJournals } from "../../../hooks/useJournals";
+import { useJournals } from "../../hooks/useJournals";
 import { StarIcon } from "@heroicons/react/24/solid";
 
 export const FeaturedJournalsPage = () => {
