@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useJournals } from "../../../hooks/useJournals";
+import { useJournals } from "../../../hooks/UseJournals";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 export const JournalsPage = () => {
