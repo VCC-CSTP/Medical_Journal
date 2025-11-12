@@ -12,7 +12,7 @@ export const JournalsPage = () => {
 
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  // Filter journals based on search
+  // Filter journals based on search sync
   const filteredJournals = React.useMemo(() => {
     if (!searchTerm) return journals;
 

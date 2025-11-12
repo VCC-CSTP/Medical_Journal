@@ -13,7 +13,7 @@ export const BrowseJournalsPage = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [selectedCategory, setSelectedCategory] = React.useState("all");
 
-  // Get unique categories
+  // Get unique categories sync
   const categories = React.useMemo(() => {
     const cats = new Set();
     journals.forEach((journal) => {

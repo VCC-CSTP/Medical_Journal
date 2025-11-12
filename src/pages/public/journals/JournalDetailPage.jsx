@@ -44,7 +44,7 @@ export const JournalDetailPage = () => {
     );
   }
 
-  // Get active editorial team members
+  // Get active editorial team members sync
   const activeEditorialTeam =
     journal.editorial_team?.filter((member) => member.is_active) || [];
 

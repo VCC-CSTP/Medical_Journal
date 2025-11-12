@@ -36,7 +36,7 @@ export const FeaturedJournalsPage = () => {
   return (
     <div className="bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        {/* Header Section */}
+        {/* Header Section sync */}
         <div className="mx-auto max-w-2xl text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <StarIcon className="h-8 w-8 text-yellow-500" />
