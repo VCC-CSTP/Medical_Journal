@@ -45,7 +45,7 @@ export const CategoryJournalsPage = () => {
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
-        {/* Header Section */}
+        {/* Header Section  Header Section */}
         <div className="mb-12">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
             <Link to="/journals" className="hover:text-gray-700">
