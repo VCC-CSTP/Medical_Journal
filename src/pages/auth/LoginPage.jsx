@@ -62,7 +62,7 @@ export const LoginPage = () => {
           const { role } = await checkUserRole(session.user.id);
 
           // Redirect based on role
-          console.log("ROLE: ", role)
+          console.log("ROLE: ", role);
           if (role === "super_admin" || role === "admin") {
             navigate("/adm/dashboard");
           } else {
@@ -136,7 +136,7 @@ export const LoginPage = () => {
       if (data.user) {
         // Update last_login_at in user_profiles
         await ConnectDatabase.from("user_profiles")
-          .update({ last_login_at: new Date().toISOString() })
+          .update({ last_login: new Date().toISOString() })
           .eq("id", data.user.id);
 
         setSuccess("Login successful! Redirecting...");

@@ -37,12 +37,16 @@ import { CreateJournalPage } from "./pages/admin/journals/CreateJournalPage";
 import { CreateOrganization } from "./pages/admin/organizations/CreateOrganization";
 import { CreatePerson } from "./pages/admin/people/CreatePerson";
 import { CreateIndexPage } from "./pages/admin/indexing/CreateIndexPage";
+import { AssignJournal } from "./pages/admin/people/AssignJournal";
+import { ManageAssignments } from "./pages/admin/people/ManageAssignment";
+import { PendingApprovals } from "./pages/admin/people/PendingApprovals";
 
 // Admin Listings
 import { ListIndex } from "./pages/admin/indexing/ListIndex";
 import { ListPeople } from "./pages/admin/people/ListPeople";
 import { ListOrganizations } from "./pages/admin/organizations/ListOrganizations";
 import { ListJournals } from "./pages/admin/journals/ListJournals";
+
 // Admin Edits
 import { EditIndexPage } from "./pages/admin/indexing/EditIndexPage";
 import { EditJournalPage} from "./pages/admin/journals/EditJournalPage";
@@ -95,7 +99,7 @@ function App() {
 
           {/* Authenticated Routes - TODO: Add ProtectedRoute wrapper */}
           <Route path="/peer-reviewers" element={<PeoplePage />} />
-          <Route path="/user-account" element={<AccountEdit/>} />
+          <Route path="/user-account" element={<AccountEdit />} />
         </Route>
 
         {/* Admin Site  Protected Route*/}
@@ -125,6 +129,9 @@ function App() {
           <Route path="people/create" element={<CreatePerson />} />
           <Route path="people" element={<ListPeople />} />
           <Route path="people/:id/edit" element={<EditPerson />} />
+          <Route path="people/:id/assign-journal" element={<AssignJournal />}/>
+          <Route path="people/assignments" element={<ManageAssignments />} />
+          <Route path="people/pending-approvals" element={<PendingApprovals/>} />
 
           {/* Announcements Management */}
           {/* TODO: Add announcement routes

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ConnectDatabase from "../../lib/ConnectDatabase";
 import {
   ExclamationCircleIcon,
@@ -11,12 +11,10 @@ import {
 } from "@heroicons/react/24/outline";
 
 export const RegisterPage = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [cvFile, setCvFile] = useState(null);
-  const [uploadingCV, setUploadingCV] = useState(false);
 
   const [formData, setFormData] = useState({
     // Basic Info
@@ -25,8 +23,6 @@ export const RegisterPage = () => {
     middleName: "",
     email: "",
     phone: "",
-    password: "",
-    confirmPassword: "",
 
     // Professional Info (for people table)
     title: "",
@@ -51,7 +47,7 @@ export const RegisterPage = () => {
     const file = e.target.files[0];
 
     if (file) {
-      // Validate file type (PDF or Word documents)
+      // Validate file type
       const validTypes = [
         "application/pdf",
         "application/msword",
@@ -65,7 +61,7 @@ export const RegisterPage = () => {
       }
 
       // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      const maxSize = 5 * 1024 * 1024;
       if (file.size > maxSize) {
         setError("CV file size must be less than 5MB");
         e.target.value = "";
@@ -108,29 +104,9 @@ export const RegisterPage = () => {
       return false;
     }
 
-    // Password validation
-    if (!formData.password) {
-      setError("Password is required");
-      return false;
-    }
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long");
-      return false;
-    }
-
-    // Password strength check
-    const hasUpperCase = /[A-Z]/.test(formData.password);
-    const hasLowerCase = /[a-z]/.test(formData.password);
-    const hasNumbers = /\d/.test(formData.password);
-
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-      setError("Password must contain uppercase, lowercase, and numbers");
-      return false;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+    // CV is required
+    if (!cvFile) {
+      setError("Please upload your CV/Resume (PDF or Word document)");
       return false;
     }
 
@@ -140,43 +116,6 @@ export const RegisterPage = () => {
     }
 
     return true;
-  };
-
-  // Upload CV to Supabase Storage
-  const uploadCVToStorage = async (userId) => {
-    if (!cvFile) return null;
-
-    setUploadingCV(true);
-    try {
-      const fileExt = cvFile.name.split(".").pop();
-      const fileName = `${userId}-cv-${Date.now()}.${fileExt}`;
-      const filePath = `cvs/${fileName}`;
-
-      // Upload to Supabase Storage
-      const { data, error: uploadError } = await ConnectDatabase.storage
-        .from("user-documents")
-        .upload(filePath, cvFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        console.error("CV upload error:", uploadError);
-        return null;
-      }
-
-      // Get public URL
-      const { data: urlData } = ConnectDatabase.storage
-        .from("user-documents")
-        .getPublicUrl(filePath);
-
-      return urlData.publicUrl;
-    } catch (error) {
-      console.error("Error uploading CV:", error);
-      return null;
-    } finally {
-      setUploadingCV(false);
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -195,44 +134,88 @@ export const RegisterPage = () => {
         formData.middleName ? formData.middleName + " " : ""
       }${formData.lastName}`.trim();
 
-      // Step 1: Create auth.user (this will automatically trigger user_profiles creation)
+      // Step 1: Create a temporary user ID for the pending registration
+      // We'll use a placeholder auth account that will be activated later
+      const tempPassword = Math.random().toString(36).slice(-16) + "Aa1!"; // Temporary password
+
       const { data: authData, error: signUpError } =
         await ConnectDatabase.auth.signUp({
           email: formData.email.trim().toLowerCase(),
-          password: formData.password,
+          password: tempPassword, // Temporary password
           options: {
             data: {
               first_name: formData.firstName,
               last_name: formData.lastName,
               full_name: fullName,
+              pending_approval: true,
             },
-            emailRedirectTo: `${window.location.origin}/login`,
+            emailRedirectTo: `${window.location.origin}/set-password`,
           },
         });
 
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Step 2: Upload CV if provided
-        let cvUrl = null;
-        if (cvFile) {
-          cvUrl = await uploadCVToStorage(authData.user.id);
+        const userId = authData.user.id;
+
+        // Step 1.5: Sign in with the temporary credentials to get authenticated session
+        const { error: signInError } =
+          await ConnectDatabase.auth.signInWithPassword({
+            email: formData.email.trim().toLowerCase(),
+            password: tempPassword,
+          });
+
+        if (signInError) {
+          console.error("Sign in error:", signInError);
+          // Continue anyway - we'll try to upload without full auth
         }
 
-        // Step 3: Update user_profiles with phone number and CV URL
-        const updateData = {};
-        if (formData.phone) updateData.phone = formData.phone;
-        if (cvUrl) updateData.cv_url = cvUrl;
+        // Step 2: Upload CV to Supabase Storage
+        let cvUrl = null;
+        if (cvFile) {
+          const fileExt = cvFile.name.split(".").pop();
+          const fileName = `${userId}/cv_${Date.now()}.${fileExt}`;
 
-        if (Object.keys(updateData).length > 0) {
-          await ConnectDatabase.from("user_profiles")
-            .update(updateData)
-            .eq("id", authData.user.id);
+          const { data: uploadData, error: uploadError } =
+            await ConnectDatabase.storage.from("cvs").upload(fileName, cvFile, {
+              cacheControl: "3600",
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error("CV upload error:", uploadError);
+            throw new Error("Failed to upload CV. Please try again.");
+          }
+
+          // Get public URL for the CV
+          const { data: urlData } = ConnectDatabase.storage
+            .from("cvs")
+            .getPublicUrl(fileName);
+
+          cvUrl = urlData.publicUrl;
+        }
+
+        // Step 3: Update user_profiles with CV URL and approval status
+        const { error: profileUpdateError } = await ConnectDatabase.from(
+          "user_profiles"
+        )
+          .update({
+            phone: formData.phone || null,
+            cv_url: cvUrl,
+            approval_status: "pending",
+            is_active: false, // Not active until approved
+          })
+          .eq("id", userId);
+
+        if (profileUpdateError) {
+          console.error("Profile update error:", profileUpdateError);
         }
 
         // Step 4: Create people record (for journal editorial activities)
-        const peopleData = {
-          user_id: authData.user.id,
+        const { error: peopleError } = await ConnectDatabase.from(
+          "people"
+        ).insert({
+          user_id: userId,
           first_name: formData.firstName,
           last_name: formData.lastName,
           middle_name: formData.middleName || null,
@@ -242,34 +225,36 @@ export const RegisterPage = () => {
           phone: formData.phone || null,
           affiliation: formData.affiliation || null,
           position: formData.position || null,
+          cv_url: cvUrl,
           is_verified: false,
-          is_active: true,
-        };
-
-        if (cvUrl) peopleData.cv_url = cvUrl;
-
-        const { error: peopleError } = await ConnectDatabase.from(
-          "people"
-        ).insert(peopleData);
+          is_active: false, // Not active until approved
+        });
 
         if (peopleError) {
           console.error("Error creating people record:", peopleError);
-          // Don't fail registration if people record fails
         }
 
         // Step 5: Link person_id to user_profiles
         if (!peopleError) {
           const { data: personData } = await ConnectDatabase.from("people")
             .select("id")
-            .eq("user_id", authData.user.id)
+            .eq("user_id", userId)
             .single();
 
           if (personData) {
             await ConnectDatabase.from("user_profiles")
               .update({ person_id: personData.id })
-              .eq("id", authData.user.id);
+              .eq("id", userId);
           }
         }
+
+        // Step 6: Send registration received notification email
+        // Note: This would typically be handled by a Supabase Edge Function
+        // For now, we'll just show success message
+
+        // Step 7: Sign out the user so they don't remain logged in
+        // They should only log in after admin approval and password setup
+        await ConnectDatabase.auth.signOut();
 
         setSuccess(true);
       }
@@ -283,8 +268,6 @@ export const RegisterPage = () => {
         );
       } else if (err.message.includes("Invalid email")) {
         setError("Please enter a valid email address.");
-      } else if (err.message.includes("Password")) {
-        setError(err.message);
       } else {
         setError(
           err.message ||
@@ -306,45 +289,62 @@ export const RegisterPage = () => {
               <CheckCircleIcon className="h-10 w-10 text-green-600" />
             </div>
             <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
-              Registration Successful!
+              Registration Received!
             </h2>
-            <div className="mt-4 rounded-lg bg-blue-50 p-4 border border-blue-200">
-              <div className="flex items-start">
-                <InformationCircleIcon className="h-6 w-6 text-blue-600 mt-0.5 shrink-0" />
-                <div className="ml-3 text-left">
-                  <h3 className="text-sm font-semibold text-blue-900">
-                    Verify Your Email
+            <div className="mt-4 rounded-md bg-blue-50 p-4">
+              <div className="flex">
+                <InformationCircleIcon className="h-5 w-5 text-blue-400 mt-0.5" />
+                <div className="ml-3 flex-1 text-left">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    What happens next?
                   </h3>
-                  <p className="mt-2 text-sm text-blue-700">
-                    We've sent a verification email to{" "}
-                    <span className="font-semibold">{formData.email}</span>.
-                  </p>
-                  <p className="mt-2 text-sm text-blue-700">
-                    Please check your inbox and click the verification link to
-                    activate your account.
-                  </p>
-                  {cvFile && (
-                    <p className="mt-2 text-sm text-blue-700">
-                      Your CV has been uploaded successfully.
+                  <div className="mt-2 text-sm text-blue-700 space-y-2">
+                    <p>
+                      <strong>1.</strong> You will receive a confirmation email
+                      shortly.
                     </p>
-                  )}
+                    <p>
+                      <strong>2.</strong> Our administrators will review your
+                      registration.
+                    </p>
+                    <p>
+                      <strong>3.</strong> Once approved, you'll receive an email
+                      with instructions to set your password.
+                    </p>
+                    <p>
+                      <strong>4.</strong> After setting your password, you can
+                      log in and access the platform.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="mt-6">
+
+            <div className="mt-6 rounded-md bg-yellow-50 p-4">
+              <div className="flex">
+                <ExclamationCircleIcon className="h-5 w-5 text-yellow-400 mt-0.5" />
+                <div className="ml-3 text-left">
+                  <p className="text-sm text-yellow-700">
+                    <strong>Please note:</strong> The approval process typically
+                    takes 1-3 business days. You will receive an email
+                    notification once your account has been approved.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-gray-500">
+              Don't forget to check your spam folder if you don't see the email.
+            </p>
+
+            <div className="mt-8">
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
+                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
               >
-                Go to Login Page
+                Return to Login
               </Link>
             </div>
-            <p className="mt-4 text-xs text-gray-500">
-              Didn't receive the email? Check your spam folder or{" "}
-              <button className="font-semibold text-indigo-600 hover:text-indigo-500">
-                resend verification email
-              </button>
-            </p>
           </div>
         </div>
       </div>
@@ -352,35 +352,66 @@ export const RegisterPage = () => {
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left Side - Registration Form */}
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Left Side - Form */}
       <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:w-96">
+          {/* Logo and Title */}
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-              Create your account
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-indigo-600">PAMJE</h1>
+              <p className="mt-2 text-sm text-gray-600">
+                Philippine Association of Medical Journal Editors
+              </p>
+            </div>
+
+            <h2 className="text-2xl font-bold leading-9 tracking-tight text-gray-900">
+              Request Access
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Join PAMJE to access journal management tools
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-semibold text-indigo-600 hover:text-indigo-500"
+              >
+                Sign in instead
+              </Link>
             </p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mt-6 rounded-lg bg-red-50 p-4 border border-red-200">
-              <div className="flex items-start">
-                <ExclamationCircleIcon className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
-                <p className="ml-3 text-sm text-red-700">{error}</p>
+            <div className="mt-6 rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
               </div>
             </div>
           )}
 
+          {/* Info Banner */}
+          <div className="mt-6 rounded-md bg-blue-50 p-4">
+            <div className="flex">
+              <InformationCircleIcon className="h-5 w-5 text-blue-400" />
+              <div className="ml-3">
+                <p className="text-sm text-blue-700">
+                  Your registration will be reviewed by our administrators.
+                  You'll receive an email once approved, with instructions to
+                  set your password.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Registration Form */}
           <div className="mt-8">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Information Section */}
+              {/* Personal Information Section */}
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900">
-                  Basic Information
+                  Personal Information
                 </h3>
 
                 {/* First Name */}
@@ -396,6 +427,7 @@ export const RegisterPage = () => {
                     name="firstName"
                     type="text"
                     required
+                    autoComplete="given-name"
                     value={formData.firstName}
                     onChange={handleChange}
                     disabled={loading}
@@ -416,11 +448,12 @@ export const RegisterPage = () => {
                     id="middleName"
                     name="middleName"
                     type="text"
+                    autoComplete="additional-name"
                     value={formData.middleName}
                     onChange={handleChange}
                     disabled={loading}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="Cruz"
+                    placeholder="Santos"
                   />
                 </div>
 
@@ -437,6 +470,7 @@ export const RegisterPage = () => {
                     name="lastName"
                     type="text"
                     required
+                    autoComplete="family-name"
                     value={formData.lastName}
                     onChange={handleChange}
                     disabled={loading}
@@ -461,12 +495,12 @@ export const RegisterPage = () => {
                     onChange={handleChange}
                     disabled={loading}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="Dr., Prof., MD, PhD"
+                    placeholder="Dr., Prof., etc."
                   />
                 </div>
               </div>
 
-              {/* Contact Information */}
+              {/* Contact Information Section */}
               <div className="space-y-4 pt-4 border-t border-gray-200">
                 <h3 className="text-sm font-semibold text-gray-900">
                   Contact Information
@@ -560,127 +594,71 @@ export const RegisterPage = () => {
                     placeholder="Associate Professor"
                   />
                 </div>
-
-                {/* CV Upload */}
-                <div>
-                  <label
-                    htmlFor="cv-upload"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Upload CV (Optional)
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Accepted formats: PDF, Word (DOC, DOCX) • Max size: 5MB
-                  </p>
-
-                  {!cvFile ? (
-                    <label
-                      htmlFor="cv-upload"
-                      className="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 hover:bg-gray-50 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <div className="text-center">
-                        <DocumentArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
-                        <p className="mt-2 text-sm text-gray-600">
-                          Click to upload or drag and drop
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          PDF or Word document
-                        </p>
-                      </div>
-                      <input
-                        id="cv-upload"
-                        name="cv-upload"
-                        type="file"
-                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        onChange={handleFileChange}
-                        disabled={loading || uploadingCV}
-                        className="hidden"
-                      />
-                    </label>
-                  ) : (
-                    <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 rounded-lg">
-                      <div className="flex items-center flex-1 min-w-0">
-                        <DocumentArrowUpIcon className="h-8 w-8 text-indigo-600 shrink-0" />
-                        <div className="ml-3 flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {cvFile.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {(cvFile.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={removeFile}
-                        disabled={loading || uploadingCV}
-                        className="ml-3 p-1 text-gray-400 hover:text-red-600 transition-colors disabled:cursor-not-allowed"
-                        title="Remove file"
-                      >
-                        <XMarkIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
 
-              {/* Password Section */}
-              <div className="space-y-4 pt-4 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Security
+              {/* CV Upload Section */}
+              <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                  Curriculum Vitae <span className="text-red-500">*</span>
                 </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Accepted formats: PDF, Word (DOC, DOCX) • Max size: 5MB
+                </p>
 
-                {/* Password */}
-                <div>
+                {/* File Upload */}
+                {!cvFile ? (
                   <label
-                    htmlFor="password"
-                    className="block text-sm font-medium text-gray-700"
+                    htmlFor="cv-upload"
+                    className="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 hover:bg-gray-50 transition-all disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Password <span className="text-red-500">*</span>
+                    <div className="text-center">
+                      <DocumentArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-2 text-sm text-gray-600">
+                        Click to upload your CV
+                      </p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        PDF or Word document (required)
+                      </p>
+                    </div>
+                    <input
+                      id="cv-upload"
+                      name="cv-upload"
+                      type="file"
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleFileChange}
+                      disabled={loading}
+                      className="hidden"
+                      required
+                    />
                   </label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    autoComplete="new-password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    disabled={loading}
-                    className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="••••••••"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Must be at least 8 characters with uppercase, lowercase, and
-                    numbers
-                  </p>
-                </div>
-
-                {/* Confirm Password */}
-                <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Confirm Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    autoComplete="new-password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    disabled={loading}
-                    className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="••••••••"
-                  />
-                </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-300 rounded-lg">
+                    <div className="flex items-center flex-1 min-w-0">
+                      <DocumentArrowUpIcon className="h-8 w-8 text-green-600 shrink-0" />
+                      <div className="ml-3 flex-1 min-w-0">
+                        <p className="text-sm font-medium text-green-900 truncate">
+                          {cvFile.name}
+                        </p>
+                        <p className="text-xs text-green-700">
+                          {(cvFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      disabled={loading}
+                      className="ml-3 p-1 text-gray-400 hover:text-red-600 transition-colors disabled:cursor-not-allowed"
+                      title="Remove file"
+                    >
+                      <XMarkIcon className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Terms and Conditions */}
-              <div className="flex items-start">
+              <div className="flex items-start pt-4">
                 <div className="flex h-6 items-center">
                   <input
                     id="agreeToTerms"
@@ -698,6 +676,8 @@ export const RegisterPage = () => {
                     <a
                       href="/terms"
                       className="font-medium text-indigo-600 hover:text-indigo-500"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       Terms and Conditions
                     </a>{" "}
@@ -705,6 +685,8 @@ export const RegisterPage = () => {
                     <a
                       href="/privacy"
                       className="font-medium text-indigo-600 hover:text-indigo-500"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       Privacy Policy
                     </a>
@@ -716,16 +698,16 @@ export const RegisterPage = () => {
               <div>
                 <button
                   type="submit"
-                  disabled={loading || uploadingCV}
+                  disabled={loading}
                   className="flex w-full justify-center items-center rounded-md bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
                     <>
                       <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
-                      {uploadingCV ? "Uploading CV..." : "Creating Account..."}
+                      Submitting Registration...
                     </>
                   ) : (
-                    "Create Account"
+                    "Submit Registration"
                   )}
                 </button>
               </div>
