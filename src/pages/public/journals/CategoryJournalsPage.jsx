@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { useJournals, useJournalCategories } from "../../hooks/useJournals";
+import { useJournals, useJournalCategories } from "../../../hooks/useJournals";
 import { FunnelIcon } from "@heroicons/react/24/outline";
 
 export const CategoryJournalsPage = () => {
