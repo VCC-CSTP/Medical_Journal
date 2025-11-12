@@ -27,8 +27,15 @@ export const AdminLayout = () => {
             </div>
             <nav className="flex items-center gap-4">
               <a
+                href="people/pending-approvals"
+                className="text-sm text-gray-600 hover:text-gray-900 border-2 border-amber-500 p-1 rounded-md"
+                target="_blank"
+              >
+                Pending Approvals
+              </a>
+              <a
                 href="/"
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-gray-600 hover:text-gray-900 border-2 border-green-500 p-1 rounded-md"
                 target="_blank"
               >
                 View Site

@@ -383,6 +383,12 @@ export const EditPerson = () => {
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     >
                       <option value="user">User (Basic Access)</option>
+                      <option value="researcher">
+                        Researcher (Has Access to People database)
+                      </option>
+                      <option value="reviewer">
+                        Reviewer (Has Access to People database)
+                      </option>
                       <option value="editor">Editor (Can Edit Content)</option>
                       <option value="admin">Admin (Dashboard Access)</option>
                       <option value="super_admin">
