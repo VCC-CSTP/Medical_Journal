@@ -1,6 +1,6 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
-import { useJournals } from "../../../hooks/UseJournals";
+import { useJournal } from "../../../hooks/UseJournals";
 import {
   GlobeAltIcon,
   EnvelopeIcon,
@@ -12,7 +12,7 @@ import {
 
 export const JournalDetailPage = () => {
   const { id } = useParams();
-  const { journal, loading, error } = useJournals(id);
+  const { journal, loading, error } = useJournal(id);
 
   if (loading) {
     return (

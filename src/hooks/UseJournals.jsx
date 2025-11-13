@@ -123,6 +123,7 @@ export const useJournals = (options = {}) => {
         journalUrl: journal.website_url,
         email: journal.email,
         // Raw data for detail page
+        
         rawData: journal,
       }));
 
