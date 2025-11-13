@@ -11,7 +11,7 @@ import { JournalsPage } from "./pages/public/journals/JournalsPage";
 import { JournalDetailPage } from "./pages/public/journals/JournalDetailPage";
 import { BrowseJournalsPage } from "./pages/public/journals/BrowseJournalsPage";
 import { FeaturedJournalsPage } from "./pages/public/journals/FeaturedJournalsPage";
-import { CategoryJournalsPage } from "./pages/public/journals/CategoryJournalsPage";
+// import { CategoryJournalsPage } from "./pages/public/journals/CategoryJournalsPage";
 import { EditorsResourcesPage } from "./pages/public/resources/EditorsResourcesPage";
 import { ResearchersResourcesPage } from "./pages/public/resources/ResearchersResourcesPage";
 import { GuidelinesPage } from "./pages/public/GuidelinesPage";
@@ -75,18 +75,13 @@ function App() {
           <Route path="/journals" element={<JournalsPage />} />
           <Route path="/journals/browse" element={<BrowseJournalsPage />} />
           <Route path="/journals/featured" element={<FeaturedJournalsPage />} />
-          <Route
-            path="/journals/category/:category"
-            element={<CategoryJournalsPage />}
-          />
           <Route path="/journals/:id" element={<JournalDetailPage />} />
+          {/* <Route path="/journals/category/:category" element={<CategoryJournalsPage />} /> */}
+          
 
           {/* Resources */}
           <Route path="/resources/editors" element={<EditorsResourcesPage />} />
-          <Route
-            path="/resources/researchers"
-            element={<ResearchersResourcesPage />}
-          />
+          <Route path="/resources/researchers" element={<ResearchersResourcesPage />} />
           <Route path="/resources/faq" element={<FAQPage />} />
           <Route path="/news" element={<NewsPage />} />
 

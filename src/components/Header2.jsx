@@ -215,14 +215,14 @@ export const Header2 = () => {
                   >
                     Featured Journals
                   </Link>
-                  <Link
+                  {/* <Link
                     to="/journals/category"
                     onClick={() => setActiveDropdown(null)}
                     className="block px-4 py-2 text-gray-700 hover:bg-blue-50 
                                     hover:text-primary transition-colors"
                   >
                     Category Journals
-                  </Link>
+                  </Link> 
                   <div className="border-t border-gray-200 my-2"></div>
                   <Link
                     to="/journals/submit"
@@ -231,7 +231,7 @@ export const Header2 = () => {
                                     transition-colors"
                   >
                     Submit a Journal
-                  </Link>
+                  </Link>*/}
                 </div>
               )}
             </li>
