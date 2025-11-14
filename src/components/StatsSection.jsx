@@ -1,5 +1,5 @@
 import React from "react";
-import { useHomeStats } from "../hooks/useHomeStats";
+import { useHomeStats } from "../hooks/UseHomeStats";
 import {
   BookOpenIcon,
   DocumentTextIcon,
