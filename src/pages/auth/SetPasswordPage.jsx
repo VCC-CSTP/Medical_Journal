@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ConnectDatabase from "../../lib/ConnectDatabase";
 import {
   ExclamationCircleIcon,
@@ -10,12 +10,11 @@ import {
 
 export const SetPasswordPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [token, setToken] = useState(null);
   const [validatingToken, setValidatingToken] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
 
   const [formData, setFormData] = useState({
     password: "",
@@ -23,17 +22,55 @@ export const SetPasswordPage = () => {
   });
 
   useEffect(() => {
-    // Get token from URL
-    const tokenFromUrl = searchParams.get("token");
-    if (!tokenFromUrl) {
-      setError("Invalid or missing activation link. Please contact support.");
-      setValidatingToken(false);
-      return;
-    }
+    // Check if we have a valid session from the password reset link
+    const checkSession = async () => {
+      try {
+        // Supabase automatically creates a session from hash params
+        // (#access_token=xxx&refresh_token=yyy&type=recovery)
+        const {
+          data: { session },
+          error: sessionError,
+        } = await ConnectDatabase.auth.getSession();
 
-    setToken(tokenFromUrl);
-    setValidatingToken(false);
-  }, [searchParams]);
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          setError(
+            "Invalid or expired activation link. Please request a new one."
+          );
+          setValidatingToken(false);
+          return;
+        }
+
+        if (!session) {
+          setError(
+            "No active session found. Please use the link from your email."
+          );
+          setValidatingToken(false);
+          return;
+        }
+
+        // Check if this is a recovery session
+        const {
+          data: { user },
+        } = await ConnectDatabase.auth.getUser();
+
+        if (!user) {
+          setError("Unable to verify your account. Please contact support.");
+          setValidatingToken(false);
+          return;
+        }
+
+        setHasSession(true);
+        setValidatingToken(false);
+      } catch (err) {
+        console.error("Session validation error:", err);
+        setError("An error occurred while validating your activation link.");
+        setValidatingToken(false);
+      }
+    };
+
+    checkSession();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -81,8 +118,8 @@ export const SetPasswordPage = () => {
       return;
     }
 
-    if (!token) {
-      setError("Invalid activation token. Please contact support.");
+    if (!hasSession) {
+      setError("Invalid session. Please use the link from your email.");
       return;
     }
 
@@ -90,7 +127,17 @@ export const SetPasswordPage = () => {
     setError("");
 
     try {
-      // Update user password using the recovery token
+      // Get current user
+      const {
+        data: { user },
+        error: userError,
+      } = await ConnectDatabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("Unable to verify user session");
+      }
+
+      // Update password - session exists from the reset token
       const { error: updateError } = await ConnectDatabase.auth.updateUser({
         password: formData.password,
       });
@@ -98,25 +145,31 @@ export const SetPasswordPage = () => {
       if (updateError) throw updateError;
 
       // Update user_profiles to mark as active
-      const {
-        data: { user },
-      } = await ConnectDatabase.auth.getUser();
+      const { error: profileError } = await ConnectDatabase.from(
+        "user_profiles"
+      )
+        .update({
+          is_active: true,
+          approval_status: "approved",
+        })
+        .eq("id", user.id);
 
-      if (user) {
-        await ConnectDatabase.from("user_profiles")
-          .update({
-            is_active: true,
-            approval_status: "approved",
-          })
-          .eq("id", user.id);
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        // Continue anyway - password is set
+      }
 
-        // Also activate the people record
-        await ConnectDatabase.from("people")
-          .update({
-            is_active: true,
-            is_verified: true,
-          })
-          .eq("user_id", user.id);
+      // Also activate the people record
+      const { error: peopleError } = await ConnectDatabase.from("people")
+        .update({
+          is_active: true,
+          is_verified: true,
+        })
+        .eq("user_id", user.id);
+
+      if (peopleError) {
+        console.error("People update error:", peopleError);
+        // Continue anyway - password is set
       }
 
       setSuccess(true);
@@ -124,7 +177,7 @@ export const SetPasswordPage = () => {
       console.error("Set password error:", err);
       setError(
         err.message ||
-          "An error occurred while setting your password. Please try again."
+          "An error occurred while setting your password. Please try again or contact support."
       );
     } finally {
       setLoading(false);
@@ -174,6 +227,46 @@ export const SetPasswordPage = () => {
           <p className="mt-4 text-sm text-gray-600">
             Validating activation link...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if no session
+  if (!hasSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <ExclamationCircleIcon className="h-10 w-10 text-red-600" />
+            </div>
+            <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+              Invalid Activation Link
+            </h2>
+            <p className="mt-3 text-base text-gray-600">{error}</p>
+            <p className="mt-2 text-sm text-gray-500">
+              The activation link may have expired or been used already.
+            </p>
+
+            <div className="mt-8 space-y-4">
+              <button
+                onClick={() => navigate("/login")}
+                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              >
+                Go to Login
+              </button>
+              <p className="text-sm text-gray-600">
+                Need help?{" "}
+                <a
+                  href="mailto:support@pamje.org"
+                  className="font-semibold text-indigo-600 hover:text-indigo-500"
+                >
+                  Contact Support
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -272,7 +365,7 @@ export const SetPasswordPage = () => {
           <div>
             <button
               type="submit"
-              disabled={loading || !token}
+              disabled={loading || !hasSession}
               className="flex w-full justify-center items-center rounded-md bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
