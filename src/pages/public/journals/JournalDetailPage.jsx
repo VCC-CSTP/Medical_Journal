@@ -72,7 +72,7 @@ export const JournalDetailPage = () => {
             />
           )}
         </div>
-        <div className="relative mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-6 py-15 sm:py-15 lg:px-8">
           <div className="flex items-center gap-2 text-sm text-indigo-200 mb-4">
             <Link to="/journals" className="hover:text-white">
               Journals

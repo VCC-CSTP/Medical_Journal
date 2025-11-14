@@ -86,9 +86,9 @@ export const Header2 = () => {
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <div className="size-20 bg-primary flex items-center justify-center">
               <img
-                src="/src/assets/central-logo.svg"
+                src="https://i.ibb.co/WNXTbkJj/central-logo.jpg"
                 alt="CENTRAL Logo"
-                className="w-32 h-32 mb-2"
+                className="w-40 h-25 mb-2"
               />
             </div>
           </Link>
