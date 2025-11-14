@@ -30,6 +30,7 @@ import { ProtectedRoute } from "./pages/auth/ProtectedRoute";
 import { ForgotPassword } from "./pages/auth/ForgotPassword";
 import { ResetPassword } from "./pages/auth/ResetPassword";
 import { LogOut } from "./pages/auth/LogOut";
+import { SetPasswordPage } from "./pages/auth/SetPasswordPage";
 
 // Admin pages
 import { DashboardPage } from "./pages/admin/DashboardPage";
@@ -91,6 +92,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/logout" element={<LogOut />} />
+          <Route path="/set-password" element={<SetPasswordPage/>} />
 
           {/* Authenticated Routes - TODO: Add ProtectedRoute wrapper */}
           <Route path="/peer-reviewers" element={<PeoplePage />} />
