@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 /**
- * Custom hook to fetch statistics for the homepage
+ * Custom hook to fetch statistics for the homepage  sync
  * Returns counts for journals, resources, peer reviewers, and editors
  * @returns {Object} { stats, loading, error }
  */
