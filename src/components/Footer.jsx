@@ -18,11 +18,10 @@ export const Footer = () => {
             <div className="flex flex-col items-start">
               <Link to="/" className="block">
                 <img
-                  src="/src/assets/logo-central-white.png"
+                  src="https://i.ibb.co/RptqK5DM/logo-central-white.png"
                   alt="CENTRAL Logo"
                   className="w-32 h-32 mb-2"
                 />
-
               </Link>
             </div>
           </div>
