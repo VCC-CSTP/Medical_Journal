@@ -364,7 +364,15 @@ export const Header2 = () => {
 
                     {/* Divider */}
                     <li className="h-8 w-px bg-gray-300 mx-2"></li>
-
+                    <li>
+                      <Link
+                        to="/peer-reviewers"
+                        className="block px-4 py-3 text-gray-700 hover:text-primary 
+                                hover:bg-blue-50 transition-all duration-200 font-medium"
+                      >
+                        USER LIST
+                      </Link>
+                    </li>
                     {/* ACCOUNT - This should have access to user UID and loads a public profile edit page */}
                     <li>
                       <Link

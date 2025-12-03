@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import ConnectDatabase from "../../lib/ConnectDatabase";
 import {
@@ -15,6 +15,20 @@ export const RegisterPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [cvFile, setCvFile] = useState(null);
+  const [countdown, setCountdown] = useState(10);
+
+  // Handle countdown and redirect after successful registration
+  useEffect(() => {
+    let timer;
+    if (success && countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (success && countdown === 0) {
+      window.location.href = "https://central.pamje.org/";
+    }
+    return () => clearInterval(timer);
+  }, [success, countdown]);
 
   const [formData, setFormData] = useState({
     // Basic Info
@@ -337,10 +351,36 @@ export const RegisterPage = () => {
               Don't forget to check your spam folder if you don't see the email.
             </p>
 
-            <div className="mt-8">
+            {/* Countdown Timer */}
+            <div className="mt-6 rounded-md bg-indigo-50 p-4">
+              <div className="text-center">
+                <p className="text-sm text-indigo-700">
+                  Redirecting to{" "}
+                  <a
+                    href="https://central.pamje.org/"
+                    className="font-semibold underline hover:text-indigo-900"
+                  >
+                    central.pamje.org
+                  </a>{" "}
+                  in
+                </p>
+                <p className="mt-2 text-4xl font-bold text-indigo-600">
+                  {countdown}
+                </p>
+                <p className="text-xs text-indigo-500 mt-1">seconds</p>
+              </div>
+            </div>
+
+            <div className="mt-8 space-y-3">
+              <a
+                href="https://central.pamje.org/"
+                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              >
+                Go to PAMJE Central Now
+              </a>
               <Link
                 to="/login"
-                className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                className="inline-flex w-full justify-center rounded-md bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
               >
                 Return to Login
               </Link>

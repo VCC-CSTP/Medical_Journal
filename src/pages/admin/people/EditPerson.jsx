@@ -6,6 +6,12 @@ import {
   ArrowLeftIcon,
   PlusIcon,
   TrashIcon,
+  DocumentArrowUpIcon,
+  XMarkIcon,
+  KeyIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
 export const EditPerson = () => {
@@ -16,8 +22,15 @@ export const EditPerson = () => {
   const [error, setError] = useState("");
   const [hasUserAccount, setHasUserAccount] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   const [journals, setJournals] = useState([]);
   const [personJournals, setPersonJournals] = useState([]);
+  const [cvFile, setCvFile] = useState(null);
+  const [uploadingCV, setUploadingCV] = useState(false);
+  const [currentCVUrl, setCurrentCVUrl] = useState(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     // Basic person data
@@ -43,11 +56,34 @@ export const EditPerson = () => {
     userIsActive: true,
   });
 
+  const [passwordData, setPasswordData] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+
   // Fetch person data on mount
   useEffect(() => {
+    fetchCurrentUser();
     fetchPersonData();
     fetchJournals();
   }, [id]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const {
+        data: { user },
+      } = await ConnectDatabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await ConnectDatabase.from("user_profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setCurrentUserRole(profile?.role);
+      }
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+    }
+  };
 
   const fetchPersonData = async () => {
     try {
@@ -111,6 +147,9 @@ export const EditPerson = () => {
         setPersonJournals(journalData);
       }
 
+      // Set current CV URL
+      setCurrentCVUrl(personData.cv_url);
+
       // Pre-populate form with existing data
       setFormData((prev) => ({
         ...prev,
@@ -165,6 +204,153 @@ export const EditPerson = () => {
     setError("");
   };
 
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setError("");
+  };
+
+  // Handle CV file selection
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
+
+      if (!validTypes.includes(file.type)) {
+        setError("Please upload a valid CV file (PDF or Word document)");
+        e.target.value = "";
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setError("CV file size must be less than 5MB");
+        e.target.value = "";
+        return;
+      }
+
+      setCvFile(file);
+      setError("");
+    }
+  };
+
+  // Remove selected CV file
+  const removeFile = () => {
+    setCvFile(null);
+    const fileInput = document.getElementById("cv-upload");
+    if (fileInput) fileInput.value = "";
+  };
+
+  // Upload CV to Supabase Storage
+  const uploadCV = async () => {
+    if (!cvFile || !userId) return null;
+
+    try {
+      setUploadingCV(true);
+
+      // Get file extension
+      const fileExt = cvFile.name.split(".").pop();
+      const fileName = `cv_${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
+
+      // Delete old CV if exists
+      if (currentCVUrl) {
+        const oldPath = currentCVUrl.split("/cvs/")[1];
+        if (oldPath) {
+          await ConnectDatabase.storage.from("cvs").remove([oldPath]);
+        }
+      }
+
+      // Upload new CV
+      const { error: uploadError } = await ConnectDatabase.storage
+        .from("cvs")
+        .upload(filePath, cvFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = ConnectDatabase.storage.from("cvs").getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (err) {
+      console.error("Error uploading CV:", err);
+      throw err;
+    } finally {
+      setUploadingCV(false);
+    }
+  };
+
+  // Validate password change
+  const validatePassword = () => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      return true; // Allow empty passwords (no change)
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setError("New password must be at least 8 characters long");
+      return false;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError("New passwords do not match");
+      return false;
+    }
+
+    return true;
+  };
+
+  // Change password for user
+  const handlePasswordUpdate = async () => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      return true; // No password change requested
+    }
+
+    if (!validatePassword()) {
+      return false;
+    }
+
+    try {
+      setChangingPassword(true);
+
+      // Use admin API to update user password
+      const { error } = await ConnectDatabase.auth.admin.updateUserById(
+        userId,
+        { password: passwordData.newPassword }
+      );
+
+      if (error) throw error;
+
+      // Clear password fields
+      setPasswordData({
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      return true;
+    } catch (err) {
+      console.error("Error changing password:", err);
+      setError(err.message || "Failed to change password");
+      return false;
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const validateForm = () => {
     if (!formData.first_name.trim()) {
       setError("First name is required");
@@ -204,6 +390,24 @@ export const EditPerson = () => {
     setError("");
 
     try {
+      // Handle password change if requested and user has account
+      if (
+        hasUserAccount &&
+        (passwordData.newPassword || passwordData.confirmPassword)
+      ) {
+        const passwordSuccess = await handlePasswordUpdate();
+        if (!passwordSuccess) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Upload CV if selected
+      let cvUrl = currentCVUrl;
+      if (cvFile && userId) {
+        cvUrl = await uploadCV();
+      }
+
       // Construct full name
       const fullName = [
         formData.title,
@@ -235,93 +439,95 @@ export const EditPerson = () => {
         orcid: formData.orcid.trim() || null,
         bio: formData.bio.trim() || null,
         photo_url: formData.photo_url.trim() || null,
+        cv_url: cvUrl,
         is_admin: formData.is_admin,
         is_active: formData.is_active,
         updated_at: new Date().toISOString(),
       };
 
-      const { error: updateError } = await ConnectDatabase.from("people")
+      const { error: personError } = await ConnectDatabase.from("people")
         .update(personData)
         .eq("id", id);
 
-      if (updateError) throw updateError;
+      if (personError) throw personError;
 
       // Update user_profiles if person has a user account
       if (hasUserAccount && userId) {
-        const { error: profileUpdateError } = await ConnectDatabase.from(
+        const profileData = {
+          role: formData.userRole,
+          is_active: formData.userIsActive,
+          cv_url: cvUrl,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: profileError } = await ConnectDatabase.from(
           "user_profiles"
         )
-          .update({
-            role: formData.userRole,
-            is_active: formData.userIsActive,
-            first_name: formData.first_name.trim(),
-            last_name: formData.last_name.trim(),
-            full_name: fullName,
-            phone: formData.phone.trim() || null,
-          })
+          .update(profileData)
           .eq("id", userId);
 
-        if (profileUpdateError) {
-          console.error("Error updating user profile:", profileUpdateError);
+        if (profileError) {
+          console.warn("Profile update warning:", profileError);
         }
       }
 
+      // Update current CV URL
+      if (cvUrl) {
+        setCurrentCVUrl(cvUrl);
+        setCvFile(null);
+        const fileInput = document.getElementById("cv-upload");
+        if (fileInput) fileInput.value = "";
+      }
+
+      // Navigate back with success
       navigate("/adm/people", {
-        state: {
-          message: "Person updated successfully!",
-          personId: id,
-        },
+        state: { message: "Person updated successfully" },
       });
     } catch (error) {
       console.error("Error updating person:", error);
-      setError(
-        error.message || "An error occurred while updating the person profile"
-      );
+      setError(error.message || "Failed to update person. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveJournalAssignment = async (assignmentId) => {
-    if (!confirm("Are you sure you want to remove this journal assignment?")) {
-      return;
+  // Determine available roles based on current user's role
+  const getAvailableRoles = () => {
+    if (currentUserRole === "superuser") {
+      return [
+        { value: "public", label: "Public User" },
+        { value: "viewer", label: "Viewer" },
+        { value: "contributor", label: "Contributor" },
+        { value: "reviewer", label: "Reviewer" },
+        { value: "editor", label: "Editor" },
+        { value: "admin", label: "Admin" },
+        { value: "superuser", label: "Superuser" },
+      ];
+    } else if (currentUserRole === "admin" || currentUserRole === "editor") {
+      return [
+        { value: "editor", label: "Editor" },
+        { value: "reviewer", label: "Reviewer" },
+      ];
     }
-
-    try {
-      const { error } = await ConnectDatabase.from("journal_editorial_team")
-        .delete()
-        .eq("id", assignmentId);
-
-      if (error) throw error;
-
-      // Refresh journal assignments
-      setPersonJournals((prev) => prev.filter((j) => j.id !== assignmentId));
-    } catch (error) {
-      console.error("Error removing journal assignment:", error);
-      setError("Failed to remove journal assignment");
-    }
+    return [];
   };
 
   if (fetchingData) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-sm text-gray-600">
-                Loading person data...
-              </p>
-            </div>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading person data...</p>
         </div>
       </div>
     );
   }
 
+  const availableRoles = getAvailableRoles();
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <button
@@ -331,202 +537,26 @@ export const EditPerson = () => {
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to People
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Person</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Update information for this person
+          <h1 className="text-2xl font-bold text-gray-900">Edit Person</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Update person information and manage their account
           </p>
         </div>
 
+        {/* Error Message */}
         {error && (
-          <div className="mb-6 rounded-md bg-red-50 p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">{error}</h3>
-              </div>
-            </div>
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
 
         {/* Form */}
         <div className="bg-white shadow rounded-lg">
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* User Account Section */}
-            {hasUserAccount && (
-              <div className="bg-indigo-50 rounded-lg p-4">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">
-                  User Account Settings
-                </h2>
-
-                <div className="space-y-4">
-                  <div className="bg-white p-3 rounded border border-indigo-200">
-                    <p className="text-sm text-gray-600">
-                      This person has a linked user account:{" "}
-                      <span className="font-medium text-gray-900">
-                        {formData.email}
-                      </span>
-                    </p>
-                  </div>
-
-                  {/* User Role */}
-                  <div>
-                    <label
-                      htmlFor="userRole"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      System Role
-                    </label>
-                    <select
-                      id="userRole"
-                      name="userRole"
-                      value={formData.userRole}
-                      onChange={handleChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    >
-                      <option value="user">User (Just a role)</option>
-                      <option value="researcher">
-                        {" "}
-                        Researcher (Has Access to People database)
-                      </option>
-                      <option value="reviewer">
-                        Reviewer (Has Access to People database)
-                      </option>
-                      <option value="editor">Editor (Just a role)</option>
-                      <option value="admin">Admin (Just a role)</option>
-                      <option value="super_admin">
-                        Super Admin (Full Access)
-                      </option>
-                    </select>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Controls what the user can access in the system
-                    </p>
-                  </div>
-
-                  {/* Account Active Toggle */}
-                  <div className="flex items-start">
-                    <div className="flex items-center h-5">
-                      <input
-                        id="userIsActive"
-                        name="userIsActive"
-                        type="checkbox"
-                        checked={formData.userIsActive}
-                        onChange={handleChange}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                      />
-                    </div>
-                    <div className="ml-3 text-sm">
-                      <label
-                        htmlFor="userIsActive"
-                        className="font-medium text-gray-700"
-                      >
-                        User Account Active
-                      </label>
-                      <p className="text-gray-500">
-                        User can log in and access the system
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {!hasUserAccount && (
-              <div className="bg-yellow-50 rounded-lg p-4">
-                <h2 className="text-sm font-medium text-yellow-800 mb-2">
-                  No User Account Linked
-                </h2>
-                <p className="text-sm text-yellow-700 mb-3">
-                  This person does not have a user account. They cannot log in
-                  to the system.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/adm/people/${id}/create-account`)}
-                  className="inline-flex items-center px-3 py-2 border border-yellow-800 rounded-md shadow-sm text-sm font-medium text-yellow-800 bg-white hover:bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  Create User Account
-                </button>
-              </div>
-            )}
-
-            {/* Journal Assignments */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Journal Editorial Assignments
-              </h2>
-
-              {personJournals.length > 0 ? (
-                <div className="space-y-3">
-                  {personJournals.map((assignment) => (
-                    <div
-                      key={assignment.id}
-                      className="bg-white p-4 rounded border border-gray-200 flex justify-between items-start"
-                    >
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-gray-900">
-                          {assignment.journals?.full_title || "Unknown Journal"}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          <span className="font-medium">Role:</span>{" "}
-                          {assignment.role || "N/A"}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {assignment.start_date && (
-                            <>
-                              Started:{" "}
-                              {new Date(
-                                assignment.start_date
-                              ).toLocaleDateString()}
-                            </>
-                          )}
-                          {assignment.end_date && (
-                            <>
-                              {" "}
-                              • Ended:{" "}
-                              {new Date(
-                                assignment.end_date
-                              ).toLocaleDateString()}
-                            </>
-                          )}
-                          {!assignment.is_active && (
-                            <span className="ml-2 text-red-600">
-                              (Inactive)
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleRemoveJournalAssignment(assignment.id)
-                        }
-                        className="ml-4 text-red-600 hover:text-red-800"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  No journal assignments yet.
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={() => navigate(`/adm/people/${id}/assign-journal`)}
-                className="mt-4 inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Assign to Journal
-              </button>
-            </div>
-
-            {/* Personal Information */}
+          <form onSubmit={handleSubmit} className="space-y-8 p-6">
+            {/* Basic Information */}
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
-                Personal Information
+                Basic Information
               </h2>
 
               <div className="space-y-4">
@@ -545,16 +575,16 @@ export const EditPerson = () => {
                       value={formData.title}
                       onChange={handleChange}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="Dr., Prof., MD"
+                      placeholder="Dr., Prof."
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div>
                     <label
                       htmlFor="first_name"
                       className="block text-sm font-medium text-gray-700"
                     >
-                      First Name *
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -567,9 +597,7 @@ export const EditPerson = () => {
                       placeholder="Juan"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label
                       htmlFor="middle_name"
@@ -587,13 +615,15 @@ export const EditPerson = () => {
                       placeholder="Santos"
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label
                       htmlFor="last_name"
                       className="block text-sm font-medium text-gray-700"
                     >
-                      Last Name *
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -606,9 +636,7 @@ export const EditPerson = () => {
                       placeholder="Dela Cruz"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label
                       htmlFor="suffix"
@@ -626,54 +654,10 @@ export const EditPerson = () => {
                       placeholder="Jr., Sr., III"
                     />
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor="photo_url"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      Photo URL
-                    </label>
-                    <input
-                      type="url"
-                      name="photo_url"
-                      id="photo_url"
-                      value={formData.photo_url}
-                      onChange={handleChange}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      placeholder="https://example.com/photo.jpg"
-                    />
-                  </div>
                 </div>
 
-                {/* Is Admin Toggle */}
-                <div className="flex items-start">
-                  <div className="flex items-center h-5">
-                    <input
-                      id="is_admin"
-                      name="is_admin"
-                      type="checkbox"
-                      checked={formData.is_admin}
-                      onChange={handleChange}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                    />
-                  </div>
-                  <div className="ml-3 text-sm">
-                    <label
-                      htmlFor="is_admin"
-                      className="font-medium text-gray-700"
-                    >
-                      Mark as Admin (in People table)
-                    </label>
-                    <p className="text-gray-500">
-                      Affects journal editorial permissions
-                    </p>
-                  </div>
-                </div>
-
-                {/* Is Active Toggle */}
-                <div className="flex items-start">
-                  <div className="flex items-center h-5">
+                <div className="flex items-start space-x-4">
+                  <div className="flex items-center h-5 mt-6">
                     <input
                       id="is_active"
                       name="is_active"
@@ -882,6 +866,273 @@ export const EditPerson = () => {
               </div>
             </div>
 
+            {/* User Account Section (if linked) */}
+            {hasUserAccount && (
+              <>
+                {/* Role Management */}
+                <div>
+                  <div className="flex items-center mb-4 pb-2 border-b border-gray-200">
+                    <ShieldCheckIcon className="h-5 w-5 text-gray-500 mr-2" />
+                    <h2 className="text-lg font-medium text-gray-900">
+                      User Account & Permissions
+                    </h2>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                    <p className="text-sm text-blue-800">
+                      This person has a linked user account. You can manage
+                      their role and account status here.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="userRole"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        User Role
+                      </label>
+                      <select
+                        name="userRole"
+                        id="userRole"
+                        value={formData.userRole}
+                        onChange={handleChange}
+                        disabled={availableRoles.length === 0}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
+                      >
+                        {availableRoles.length > 0 ? (
+                          availableRoles.map((role) => (
+                            <option key={role.value} value={role.value}>
+                              {role.label}
+                            </option>
+                          ))
+                        ) : (
+                          <option value={formData.userRole}>
+                            {formData.userRole.charAt(0).toUpperCase() +
+                              formData.userRole.slice(1)}{" "}
+                            (Current Role)
+                          </option>
+                        )}
+                      </select>
+                      {currentUserRole === "superuser" && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          As a superuser, you can assign any role
+                        </p>
+                      )}
+                      {(currentUserRole === "admin" ||
+                        currentUserRole === "editor") && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          You can only assign Editor and Reviewer roles
+                        </p>
+                      )}
+                      {availableRoles.length === 0 && (
+                        <p className="mt-1 text-sm text-red-500">
+                          You don't have permission to change this user's role
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-start space-x-4">
+                      <div className="flex items-center h-5 mt-1">
+                        <input
+                          id="userIsActive"
+                          name="userIsActive"
+                          type="checkbox"
+                          checked={formData.userIsActive}
+                          onChange={handleChange}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                        />
+                      </div>
+                      <div className="ml-3 text-sm">
+                        <label
+                          htmlFor="userIsActive"
+                          className="font-medium text-gray-700"
+                        >
+                          Account Active
+                        </label>
+                        <p className="text-gray-500">
+                          User can login and access the system
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Password Change Section */}
+                <div>
+                  <div className="flex items-center mb-4 pb-2 border-b border-gray-200">
+                    <KeyIcon className="h-5 w-5 text-gray-500 mr-2" />
+                    <h2 className="text-lg font-medium text-gray-900">
+                      Change Password
+                    </h2>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Leave blank if you don't want to change the user's password
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="newPassword"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        New Password
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          id="newPassword"
+                          name="newPassword"
+                          type={showNewPassword ? "text" : "password"}
+                          value={passwordData.newPassword}
+                          onChange={handlePasswordChange}
+                          disabled={loading || changingPassword}
+                          className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
+                          placeholder="Enter new password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showNewPassword ? (
+                            <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <EyeIcon className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Must be at least 8 characters long
+                      </p>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="confirmPassword"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Confirm New Password
+                      </label>
+                      <div className="mt-1 relative">
+                        <input
+                          id="confirmPassword"
+                          name="confirmPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={passwordData.confirmPassword}
+                          onChange={handlePasswordChange}
+                          disabled={loading || changingPassword}
+                          className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
+                          placeholder="Confirm new password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <EyeIcon className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CV Upload/Update Section */}
+                <div>
+                  <h2 className="text-lg font-medium text-gray-900 mb-4 pb-2 border-b">
+                    Curriculum Vitae
+                  </h2>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Upload or Update CV
+                    </label>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Accepted formats: PDF, Word (DOC, DOCX) • Max size: 5MB
+                    </p>
+
+                    {/* Current CV Display */}
+                    {currentCVUrl && !cvFile && (
+                      <div className="mb-4 flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <DocumentArrowUpIcon className="h-8 w-8 text-blue-600 shrink-0" />
+                          <div className="ml-3 flex-1 min-w-0">
+                            <p className="text-sm font-medium text-blue-900">
+                              Current CV on file
+                            </p>
+                            <a
+                              href={currentCVUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              View current CV
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* File Upload */}
+                    {!cvFile ? (
+                      <label
+                        htmlFor="cv-upload"
+                        className="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-gray-50 transition-all"
+                      >
+                        <div className="text-center">
+                          <DocumentArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+                          <p className="mt-2 text-sm text-gray-600">
+                            {currentCVUrl
+                              ? "Upload new CV"
+                              : "Click to upload CV"}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            PDF or Word document
+                          </p>
+                        </div>
+                        <input
+                          id="cv-upload"
+                          name="cv-upload"
+                          type="file"
+                          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={handleFileChange}
+                          disabled={loading || uploadingCV}
+                          className="hidden"
+                        />
+                      </label>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-300 rounded-lg">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <DocumentArrowUpIcon className="h-8 w-8 text-blue-600 shrink-0" />
+                          <div className="ml-3 flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {cvFile.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(cvFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={removeFile}
+                          disabled={loading || uploadingCV}
+                          className="ml-3 p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Remove file"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Form Actions */}
             <div className="flex items-center justify-end space-x-4 pt-6 border-t">
               <button
@@ -893,10 +1144,16 @@ export const EditPerson = () => {
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploadingCV || changingPassword}
                 className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Updating..." : "Update Person"}
+                {loading
+                  ? uploadingCV
+                    ? "Uploading CV..."
+                    : changingPassword
+                    ? "Changing Password..."
+                    : "Updating..."
+                  : "Update Person"}
               </button>
             </div>
           </form>

@@ -8,6 +8,9 @@ import {
   ExclamationCircleIcon,
   DocumentArrowUpIcon,
   XMarkIcon,
+  KeyIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 
 export const AccountEdit = () => {
@@ -20,6 +23,10 @@ export const AccountEdit = () => {
   const [cvFile, setCvFile] = useState(null);
   const [uploadingCV, setUploadingCV] = useState(false);
   const [currentCVUrl, setCurrentCVUrl] = useState(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -30,6 +37,12 @@ export const AccountEdit = () => {
     title: "",
     affiliation: "",
     position: "",
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   // Check authentication and load user data
@@ -167,6 +180,15 @@ export const AccountEdit = () => {
     setError("");
   };
 
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setError("");
+  };
+
   // Handle CV file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -206,155 +228,221 @@ export const AccountEdit = () => {
   };
 
   // Upload CV to Supabase Storage
-  const uploadCVToStorage = async () => {
+  const uploadCV = async () => {
     if (!cvFile || !userId) return null;
 
-    setUploadingCV(true);
     try {
-      const fileExt = cvFile.name.split(".").pop();
-      const fileName = `${userId}-cv-${Date.now()}.${fileExt}`;
-      const filePath = `cvs/${fileName}`;
+      setUploadingCV(true);
 
-      // Upload to Supabase Storage
-      const { data, error: uploadError } = await ConnectDatabase.storage
-        .from("user-documents")
+      // Get file extension
+      const fileExt = cvFile.name.split(".").pop();
+      const fileName = `cv_${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
+
+      // Delete old CV if exists
+      if (currentCVUrl) {
+        const oldPath = currentCVUrl.split("/cvs/")[1];
+        if (oldPath) {
+          await ConnectDatabase.storage.from("cvs").remove([oldPath]);
+        }
+      }
+
+      // Upload new CV
+      const { error: uploadError } = await ConnectDatabase.storage
+        .from("cvs")
         .upload(filePath, cvFile, {
           cacheControl: "3600",
           upsert: false,
         });
 
-      if (uploadError) {
-        console.error("CV upload error:", uploadError);
-        return null;
-      }
+      if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data: urlData } = ConnectDatabase.storage
-        .from("user-documents")
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = ConnectDatabase.storage.from("cvs").getPublicUrl(filePath);
 
-      return urlData.publicUrl;
-    } catch (error) {
-      console.error("Error uploading CV:", error);
-      return null;
+      return publicUrl;
+    } catch (err) {
+      console.error("Error uploading CV:", err);
+      throw err;
     } finally {
       setUploadingCV(false);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!userId) {
-      setError("User not authenticated");
-      return;
+  // Validate password change
+  const validatePassword = () => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      setError("Please fill in all password fields");
+      return false;
     }
 
-    // Basic validation
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError("First name and last name are required");
-      return;
+    if (passwordData.newPassword.length < 8) {
+      setError("New password must be at least 8 characters long");
+      return false;
     }
 
-    setSaving(true);
-    setError("");
-    setSuccess(false);
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError("New passwords do not match");
+      return false;
+    }
+
+    return true;
+  };
+
+  // Change password
+  const handlePasswordUpdate = async () => {
+    if (!validatePassword()) {
+      return false;
+    }
 
     try {
-      const fullName = `${formData.firstName} ${
-        formData.middleName ? formData.middleName + " " : ""
-      }${formData.lastName}`.trim();
+      setChangingPassword(true);
 
-      // Upload new CV if provided
+      const { error } = await ConnectDatabase.auth.updateUser({
+        password: passwordData.newPassword,
+      });
+
+      if (error) throw error;
+
+      // Clear password fields
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      return true;
+    } catch (err) {
+      console.error("Error changing password:", err);
+      setError(err.message || "Failed to change password");
+      return false;
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess(false);
+    setSaving(true);
+
+    try {
+      // Handle password change if requested
+      let passwordChanged = false;
+      if (passwordData.newPassword || passwordData.confirmPassword) {
+        passwordChanged = await handlePasswordUpdate();
+        if (
+          !passwordChanged &&
+          (passwordData.newPassword || passwordData.confirmPassword)
+        ) {
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Upload CV if selected
       let cvUrl = currentCVUrl;
       if (cvFile) {
-        const newCvUrl = await uploadCVToStorage();
-        if (newCvUrl) cvUrl = newCvUrl;
+        cvUrl = await uploadCV();
       }
 
-      // Update user_profiles with minimal fields to avoid RLS issues
-      const profileUpdateData = {
-        phone: formData.phone || null,
-      };
+      // Construct full name
+      const fullName = [
+        formData.title,
+        formData.firstName,
+        formData.middleName,
+        formData.lastName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
 
-      if (cvUrl) profileUpdateData.cv_url = cvUrl;
-
-      try {
-        const { error: profileError } = await ConnectDatabase.from(
-          "user_profiles"
-        )
-          .update(profileUpdateData)
-          .eq("id", userId);
-
-        if (profileError) {
-          console.warn("Profile update warning:", profileError);
-          // Continue anyway - we'll try to update people table
-        }
-      } catch (profileUpdateError) {
-        console.warn("Profile update failed:", profileUpdateError);
-        // Continue to update people table
-      }
-
-      // Update or create people record
+      // First, check if person record exists
       const { data: existingPerson } = await ConnectDatabase.from("people")
         .select("id")
         .eq("user_id", userId)
         .maybeSingle();
 
-      const peopleData = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        middle_name: formData.middleName || null,
-        full_name: fullName,
-        title: formData.title || null,
-        email: formData.email,
-        phone: formData.phone || null,
-        affiliation: formData.affiliation || null,
-        position: formData.position || null,
-      };
-
-      if (cvUrl) peopleData.cv_url = cvUrl;
-
       if (existingPerson) {
         // Update existing person record
-        const { error: updateError } = await ConnectDatabase.from("people")
-          .update(peopleData)
+        const { error: personError } = await ConnectDatabase.from("people")
+          .update({
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            middle_name: formData.middleName || null,
+            full_name: fullName,
+            title: formData.title || null,
+            phone: formData.phone || null,
+            affiliation: formData.affiliation || null,
+            position: formData.position || null,
+            cv_url: cvUrl,
+            updated_at: new Date().toISOString(),
+          })
           .eq("user_id", userId);
 
-        if (updateError) {
-          console.error("Error updating person:", updateError);
-          throw updateError;
-        }
+        if (personError) throw personError;
       } else {
         // Create new person record
-        const { error: insertError } = await ConnectDatabase.from(
+        const { error: personError } = await ConnectDatabase.from(
           "people"
         ).insert({
-          ...peopleData,
           user_id: userId,
-          is_verified: false,
-          is_active: true,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          middle_name: formData.middleName || null,
+          full_name: fullName,
+          title: formData.title || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          affiliation: formData.affiliation || null,
+          position: formData.position || null,
+          cv_url: cvUrl,
         });
 
-        if (insertError) {
-          console.error("Error creating person:", insertError);
-          throw insertError;
-        }
+        if (personError) throw personError;
+      }
+
+      // Update user_profiles table
+      const { error: profileError } = await ConnectDatabase.from(
+        "user_profiles"
+      )
+        .update({
+          phone: formData.phone || null,
+          cv_url: cvUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (profileError) {
+        console.warn("Profile update warning:", profileError);
+      }
+
+      // Update current CV URL
+      if (cvUrl) {
+        setCurrentCVUrl(cvUrl);
+        setCvFile(null);
+        const fileInput = document.getElementById("cv-upload");
+        if (fileInput) fileInput.value = "";
       }
 
       setSuccess(true);
-      setCurrentCVUrl(cvUrl);
-      setCvFile(null);
 
-      // Reset file input
-      const fileInput = document.getElementById("cv-upload");
-      if (fileInput) fileInput.value = "";
+      // Show success message
+      const successMessages = [];
+      if (passwordChanged) successMessages.push("password updated");
+      if (cvFile) successMessages.push("CV uploaded");
+      successMessages.push("profile information updated");
 
-      // Hide success message after 3 seconds
-      setTimeout(() => setSuccess(false), 3000);
+      setTimeout(() => {
+        setSuccess(false);
+        navigate(-1);
+      }, 2000);
     } catch (err) {
-      console.error("Error saving profile:", err);
-      setError(err.message || "Failed to save profile. Please try again.");
+      console.error("Error updating account:", err);
+      setError(err.message || "Failed to update account. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -362,66 +450,69 @@ export const AccountEdit = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <ArrowPathIcon className="mx-auto h-12 w-12 animate-spin text-primary" />
-          <p className="mt-4 text-sm text-gray-600">Loading your profile...</p>
+          <ArrowPathIcon className="animate-spin h-12 w-12 text-primary mx-auto mb-4" />
+          <p className="text-gray-600">Loading your account...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-3xl">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <UserCircleIcon className="h-10 w-10 text-primary" />
-            <h1 className="text-3xl font-bold text-gray-900">My Account</h1>
-          </div>
-          <p className="text-gray-600">
-            Update your personal information and professional details
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+            <UserCircleIcon className="h-8 w-8 mr-3 text-primary" />
+            Edit Account
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Update your personal information, change password, and manage your
+            CV
           </p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+            <ExclamationCircleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-3 shrink-0" />
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="mt-1 text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
         {/* Success Message */}
         {success && (
-          <div className="mb-6 rounded-lg bg-green-50 p-4 border border-green-200">
-            <div className="flex items-start">
-              <CheckCircleIcon className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
-              <p className="ml-3 text-sm text-green-700 font-medium">
-                Profile updated successfully!
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-start">
+            <CheckCircleIcon className="h-5 w-5 text-green-400 mt-0.5 mr-3 shrink-0" />
+            <div>
+              <h3 className="text-sm font-medium text-green-800">Success!</h3>
+              <p className="mt-1 text-sm text-green-700">
+                Your account has been updated successfully.
               </p>
             </div>
           </div>
         )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 rounded-lg bg-red-50 p-4 border border-red-200">
-            <div className="flex items-start">
-              <ExclamationCircleIcon className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
-              <p className="ml-3 text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        )}
-
         {/* Form */}
-        <div className="bg-white shadow-sm rounded-lg">
-          <form onSubmit={handleSubmit} className="p-6 space-y-8">
-            {/* Basic Information */}
-            <div>
+        <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+          <form onSubmit={handleSubmit} className="divide-y divide-gray-200">
+            {/* Personal Information */}
+            <div className="p-6 space-y-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                Basic Information
+                Personal Information
               </h2>
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div className="sm:col-span-2">
+                <div>
                   <label
                     htmlFor="title"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Title
+                    Title (Optional)
                   </label>
                   <input
                     id="title"
@@ -431,7 +522,7 @@ export const AccountEdit = () => {
                     onChange={handleChange}
                     disabled={saving}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="Dr., Prof., MD, PhD"
+                    placeholder="Dr., Prof., Engr."
                   />
                 </div>
 
@@ -460,7 +551,7 @@ export const AccountEdit = () => {
                     htmlFor="middleName"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Middle Name
+                    Middle Name (Optional)
                   </label>
                   <input
                     id="middleName"
@@ -470,7 +561,7 @@ export const AccountEdit = () => {
                     onChange={handleChange}
                     disabled={saving}
                     className="mt-1 block w-full rounded-md border-0 px-3 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
-                    placeholder="Cruz"
+                    placeholder="Santos"
                   />
                 </div>
 
@@ -493,15 +584,7 @@ export const AccountEdit = () => {
                     placeholder="Dela Cruz"
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Contact Information */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
-                Contact Information
-              </h2>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="email"
@@ -547,7 +630,7 @@ export const AccountEdit = () => {
             </div>
 
             {/* Professional Information */}
-            <div>
+            <div className="p-6 space-y-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                 Professional Information
               </h2>
@@ -592,8 +675,91 @@ export const AccountEdit = () => {
               </div>
             </div>
 
+            {/* Password Change Section */}
+            <div className="p-6 space-y-6">
+              <div className="flex items-center mb-4 pb-2 border-b border-gray-200">
+                <KeyIcon className="h-5 w-5 text-gray-500 mr-2" />
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Change Password
+                </h2>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Leave blank if you don't want to change your password
+              </p>
+              <div className="space-y-6">
+                <div>
+                  <label
+                    htmlFor="newPassword"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    New Password
+                  </label>
+                  <div className="mt-1 relative">
+                    <input
+                      id="newPassword"
+                      name="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordChange}
+                      disabled={saving || changingPassword}
+                      className="block w-full rounded-md border-0 px-3 py-2 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showNewPassword ? (
+                        <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Must be at least 8 characters long
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Confirm New Password
+                  </label>
+                  <div className="mt-1 relative">
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordChange}
+                      disabled={saving || changingPassword}
+                      className="block w-full rounded-md border-0 px-3 py-2 pr-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary disabled:bg-gray-100 disabled:cursor-not-allowed sm:text-sm"
+                      placeholder="Confirm new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeSlashIcon className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* CV Upload/Update */}
-            <div>
+            <div className="p-6 space-y-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
                 Curriculum Vitae
               </h2>
@@ -680,32 +846,38 @@ export const AccountEdit = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={() => navigate(-1)}
-                disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving || uploadingCV}
-                className="flex items-center px-6 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {saving ? (
-                  <>
-                    <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
-                    {uploadingCV ? "Uploading CV..." : "Saving..."}
-                  </>
-                ) : (
-                  <>
-                    <CheckCircleIcon className="h-5 w-5 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </button>
+            <div className="p-6">
+              <div className="flex items-center justify-end gap-4">
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  disabled={saving}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || uploadingCV}
+                  className="flex items-center px-6 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {saving ? (
+                    <>
+                      <ArrowPathIcon className="animate-spin h-5 w-5 mr-2" />
+                      {uploadingCV
+                        ? "Uploading CV..."
+                        : changingPassword
+                        ? "Changing Password..."
+                        : "Saving..."}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="h-5 w-5 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>
